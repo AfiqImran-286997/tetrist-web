@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+ <meta charset="UTF-8" />
+ <title>Tetris - Web Version</title>
+ <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+ <style>
+   body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
+   h1 { margin:20px 0 }
+   canvas { border:2px solid #fff; margin-top:12px }
+   #loading { color:#ff0; font-size:18px; min-height:1.4em }
+   #restartBtn { display:none; margin-top:16px; padding:10px 20px; font-size:18px; background:#0f0; color:#000; border:0; cursor:pointer }
+   #restartBtn:hover { background:#0c0 }
+   #controls { margin:16px 0 }
+   #controls button { font-size:24px; padding:10px 14px; margin:4px }
+   #controls button:disabled { opacity:.5; cursor:not-allowed }
+ </style>
+</head>
+<body>
+ <h1>Tetris - Web Version</h1>
+ <p id="loading">Loading game, please wait…</p>
+ <canvas id="gameCanvas" width="300" height="600"></canvas><br />
+ <button id="restartBtn">Restart Game</button>
+
+ <div id="controls">
+   <button id="btnLeft"  disabled>◀</button>
+   <button id="btnRight" disabled>▶</button>
+   <button id="btnDown"  disabled>▼</button>
+   <button id="btnRotate" disabled>⟳</button>
+ </div>
+
+ <script type="text/javascript">
+   let pyodide;
+
+   function showRestart(){ document.getElementById("restartBtn").style.display="inline-block"; }
+   function showLoading(msg){ document.getElementById("loading").innerText = msg || ""; }
+
+   async function main() {
+     try {
+       showLoading("Loading Python runtime…");
+       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+
+       showLoading("Loading game code…");
+       const resp = await fetch("main.py", { cache: "no-store" });
+       if (!resp.ok) throw new Error(`Could not fetch main.py: ${resp.status}`);
+       const code = await resp.text();
+       await pyodide.runPythonAsync(code);
+
+       document.querySelectorAll("#controls button").forEach(b => b.disabled = false);
+       showLoading("Game Loaded!");
+
+       document.getElementById("restartBtn").onclick = () => location.reload();
+       const callPy = (c) => pyodide.runPython(c);
+
+       // Simple one-step moves for Left/Right
+       document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
+       document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
+
+       // Rotate (single action)
+       document.getElementById("btnRotate").addEventListener("click", () =>
+         callPy(`on_key({"key":"ArrowUp"})`)
+       );
+
+       // Down: hold + tap burst
+       const btnDown = document.getElementById("btnDown");
+       const downStart = () => callPy(`start_soft_drop_hold()`);
+       const downEnd   = () => callPy(`stop_soft_drop_hold()`);
+       btnDown.addEventListener("mousedown", downStart);
+       btnDown.addEventListener("mouseup",   downEnd);
+       btnDown.addEventListener("mouseleave",downEnd);
+       btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
+       btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
+       btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+       btnDown.addEventListener("click", () => callPy(`soft_drop_tap()`));
+     } catch (e) {
+       console.error(e);
+       showLoading("Failed to load. See console for details.");
+     }
+   }
+
+   main();
+ </script>
+</body>
+</html>
