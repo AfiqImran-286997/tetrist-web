@@ -2,84 +2,348 @@
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
+ <meta name="viewport"
+       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
  <title>Tetris - Web Version</title>
- <meta name="viewport" content="width=device-width, initial-scale=1" />
+ <!-- Pyodide -->
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
  <style>
+   html, body {
+     font-size: 16px;
+     touch-action: manipulation;
+   }
+   button, input, select, textarea {
+     touch-action: manipulation;
+     -webkit-touch-callout: none;
+     -webkit-tap-highlight-color: transparent;
+     -webkit-user-select: none;
+     user-select: none;
+   }
+
+   :root { --gap: 12px; }
    body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
    h1 { margin:20px 0 }
-   canvas { border:2px solid #fff; margin-top:12px }
+   button { cursor:pointer }
+   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px }
+   .btn.primary { background:#24d15d; color:#000 }
+   .btn.secondary { background:#2f7ded; color:#fff }
+   .btn.ghost { background:#333; color:#fff }
+   .btn.small { font-size:14px; padding:8px 12px }
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
+   .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
-   #restartBtn { display:none; margin-top:16px; padding:10px 20px; font-size:18px; background:#0f0; color:#000; border:0; cursor:pointer }
-   #restartBtn:hover { background:#0c0 }
-   #controls { margin:16px 0 }
-   #controls button { font-size:24px; padding:10px 14px; margin:4px }
+   #audioStatus { font:12px/1.2 Arial, sans-serif; color:#ccc; min-height:1.2em; margin-top:6px }
+
+   /* Screens */
+   .screen { display:none }
+   .screen.active { display:block }
+
+   /* Game view */
+   #gameArea { margin-top:10px }
+   canvas { border:2px solid #fff; margin-top:12px }
+   #restartBtn { display:none; margin-top:12px }
+
+   /* Controls row */
+   #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap }
+   #controls button { font-size:24px; padding:10px 14px; margin:2px }
+   #controls button.small { font-size:16px }
    #controls button:disabled { opacity:.5; cursor:not-allowed }
+
+   /* Score table */
+   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px }
+   th, td { border:1px solid #555; padding:8px 10px; text-align:left }
+   th { background:#1b1b1b }
+   tr:nth-child(even) td { background:#141414 }
+   th.sel, td.sel { width:52px; text-align:center }
  </style>
 </head>
 <body>
- <h1>Tetris - Web Version</h1>
- <p id="loading">Loading game, please wait…</p>
- <canvas id="gameCanvas" width="300" height="600"></canvas><br />
- <button id="restartBtn">Restart Game</button>
+ <div class="wrap">
+   <h1>Tetris - Web Version</h1>
 
- <div id="controls">
-   <button id="btnLeft"  disabled>◀</button>
-   <button id="btnRight" disabled>▶</button>
-   <button id="btnDown"  disabled>▼</button>
-   <button id="btnRotate" disabled>⟳</button>
+   <!-- GLOBAL: Music control -->
+   <div class="card" style="margin-bottom:14px">
+     <button id="btnMusic" class="btn small ghost" aria-pressed="false" title="Toggle music">🔇 Music</button>
+     <div id="audioStatus"></div>
+   </div>
+
+   <!-- ===== MENU SCREEN ===== -->
+   <section id="screen-menu" class="screen active">
+     <div class="card">
+       <p id="loading">Loading engine…</p>
+       <div style="margin-top:12px">
+         <button id="btnPlay" class="btn primary">▶ Play</button>
+         <button id="btnScores" class="btn secondary">🏆 Score Board</button>
+       </div>
+     </div>
+   </section>
+
+   <!-- ===== GAME SCREEN ===== -->
+   <section id="screen-game" class="screen">
+     <div id="gameArea" class="card">
+       <p id="gameLoading" style="color:#ff0; min-height:1.2em">Loading game, please wait…</p>
+       <canvas id="gameCanvas" width="300" height="600"></canvas><br />
+       <button id="restartBtn" class="btn ghost">Restart Game</button>
+
+       <!-- On-screen controls (mobile) -->
+       <div id="controls">
+         <button id="btnLeft"  disabled aria-label="Move left">◀</button>
+         <button id="btnRight" disabled aria-label="Move right">▶</button>
+         <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
+         <button id="btnRotate" disabled aria-label="Rotate">⟳</button>
+       </div>
+
+       <div style="margin-top:6px">
+         <button id="btnBackFromGame" class="btn small ghost">← Back to Menu</button>
+       </div>
+     </div>
+   </section>
+
+   <!-- ===== SCORE BOARD SCREEN ===== -->
+   <section id="screen-scores" class="screen">
+     <div class="card" style="min-width:340px">
+       <h2>🏆 Score Board</h2>
+       <p style="opacity:.8">Top 10 highest scores on this device</p>
+       <table id="scoresTable">
+         <thead>
+           <tr>
+             <th class="sel">Sel</th>
+             <th>#</th><th>Name</th><th>Score</th><th>Date</th>
+           </tr>
+         </thead>
+         <tbody></tbody>
+       </table>
+       <div>
+         <button id="btnClearSelected" class="btn small ghost">Clear Selected</button>
+         <button id="btnClearScores" class="btn small ghost">Clear Scores</button>
+         <button id="btnBackFromScores" class="btn small ghost">← Back to Menu</button>
+       </div>
+       <p style="opacity:.6; font-size:12px; margin-top:6px">
+         (Admin password for clearing: <code>LSSIsTheBest</code>)
+       </p>
+     </div>
+   </section>
  </div>
 
+ <!-- Background music (put bgm.mp3 next to this file) -->
+ <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
+
  <script type="text/javascript">
-   let pyodide;
-
-   function showRestart(){ document.getElementById("restartBtn").style.display="inline-block"; }
-   function showLoading(msg){ document.getElementById("loading").innerText = msg || ""; }
-
-   async function main() {
-     try {
-       showLoading("Loading Python runtime…");
-       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-
-       showLoading("Loading game code…");
-       const resp = await fetch("main.py", { cache: "no-store" });
-       if (!resp.ok) throw new Error(`Could not fetch main.py: ${resp.status}`);
-       const code = await resp.text();
-       await pyodide.runPythonAsync(code);
-
-       document.querySelectorAll("#controls button").forEach(b => b.disabled = false);
-       showLoading("Game Loaded!");
-
-       document.getElementById("restartBtn").onclick = () => location.reload();
-       const callPy = (c) => pyodide.runPython(c);
-
-       // Simple one-step moves for Left/Right
-       document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
-       document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
-
-       // Rotate (single action)
-       document.getElementById("btnRotate").addEventListener("click", () =>
-         callPy(`on_key({"key":"ArrowUp"})`)
-       );
-
-       // Down: hold + tap burst
-       const btnDown = document.getElementById("btnDown");
-       const downStart = () => callPy(`start_soft_drop_hold()`);
-       const downEnd   = () => callPy(`stop_soft_drop_hold()`);
-       btnDown.addEventListener("mousedown", downStart);
-       btnDown.addEventListener("mouseup",   downEnd);
-       btnDown.addEventListener("mouseleave",downEnd);
-       btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
-       btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
-       btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
-       btnDown.addEventListener("click", () => callPy(`soft_drop_tap()`));
-     } catch (e) {
-       console.error(e);
-       showLoading("Failed to load. See console for details.");
-     }
+   // ---------- Screen switching ----------
+   function showScreen(id) {
+     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+     document.getElementById(id).classList.add('active');
    }
 
-   main();
+   // ---------- Music helpers with diagnostics ----------
+   const bgm = document.getElementById("bgm");
+   const btnMusic = document.getElementById("btnMusic");
+   const audioStatus = document.getElementById("audioStatus");
+
+   let ac;
+   function ensureAudioContext() {
+     try {
+       const Ctx = window.AudioContext || window.webkitAudioContext;
+       if (Ctx && (!ac || ac.state === "closed")) ac = new Ctx();
+       if (ac && ac.state !== "running") ac.resume().catch(()=>{});
+     } catch(e) {}
+   }
+   function setStatus(msg) { audioStatus.textContent = msg || ""; }
+   function musicIsPlaying() { return !bgm.paused && !bgm.ended && bgm.currentTime > 0; }
+   function updateMusicUI() {
+     const mutedOrPaused = bgm.muted || bgm.volume === 0 || bgm.paused;
+     btnMusic.textContent = mutedOrPaused ? "🔇 Music" : "🔊 Music";
+     btnMusic.setAttribute("aria-pressed", (!mutedOrPaused).toString());
+   }
+   async function tryStartMusic() {
+     ensureAudioContext();
+     const pref = localStorage.getItem("musicMuted");
+     if (pref === "true") { updateMusicUI(); setStatus("Music: muted (saved)"); return; }
+     try {
+       bgm.muted = false; bgm.volume = 0.6; await bgm.play();
+       updateMusicUI(); setStatus("Music: playing");
+     } catch {
+       updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
+     }
+   }
+   function toggleMusic() {
+     ensureAudioContext();
+     if (musicIsPlaying()) {
+       bgm.pause(); bgm.muted = true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
+     } else {
+       bgm.muted = false; bgm.volume = 0.6;
+       bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start"));
+       localStorage.setItem("musicMuted","false");
+     }
+     updateMusicUI();
+   }
+   bgm.addEventListener("canplaythrough", () => setStatus("Music: loaded (ready)"));
+   bgm.addEventListener("error", () => { const src=bgm.getAttribute("src"); setStatus(`Music: ERROR loading ${src}`); });
+
+   (function initMusicPref(){
+     const pref = localStorage.getItem("musicMuted");
+     if (pref === "true") bgm.muted = true;
+     updateMusicUI();
+     const kick = () => { tryStartMusic(); window.removeEventListener("pointerdown", kick); };
+     window.addEventListener("pointerdown", kick, { once:true });
+   })();
+   btnMusic.addEventListener("click", toggleMusic);
+
+   // ---------- Score storage ----------
+   const ADMIN_PASSWORD = "LSSIsTheBest";
+
+   function loadScores() {
+     try { return JSON.parse(localStorage.getItem("tetrisScores")||"[]"); }
+     catch { return []; }
+   }
+   function saveScores(arr) {
+     localStorage.setItem("tetrisScores", JSON.stringify(arr));
+   }
+   // Backfill IDs for any old entries without one
+   function ensureIds(arr) {
+     let changed = false;
+     arr.forEach(s=>{
+       if (!s.id) { s.id = makeId(); changed = true; }
+     });
+     if (changed) saveScores(arr);
+     return arr;
+   }
+   function makeId() {
+     if (crypto && crypto.randomUUID) return crypto.randomUUID();
+     return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+   }
+   function addScore(name, score) {
+     const arr = ensureIds(loadScores());
+     arr.push({ id: makeId(), name, score: Number(score)||0, date: new Date().toISOString() });
+     arr.sort((a,b)=>b.score-a.score);
+     saveScores(arr.slice(0, 50)); // keep last 50 best
+   }
+   function renderScores() {
+     const tbody = document.querySelector("#scoresTable tbody");
+     tbody.innerHTML = "";
+     const data = ensureIds(loadScores()).sort((a,b)=>b.score-a.score).slice(0,10);
+     if (data.length === 0) {
+       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
+       return;
+     }
+     data.forEach((row, i)=>{
+       const tr = document.createElement("tr");
+       const d = new Date(row.date);
+       tr.innerHTML =
+         `<td class="sel"><input type="checkbox" class="selbox" data-id="${row.id}"></td>
+          <td>${i+1}</td>
+          <td>${escapeHtml(row.name||"Player")}</td>
+          <td>${row.score}</td>
+          <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>`;
+       tbody.appendChild(tr);
+     });
+   }
+   function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+   function promptPassword(actionLabel) {
+     const pw = prompt(`${actionLabel}\nEnter admin password:`);
+     return pw === ADMIN_PASSWORD;
+   }
+
+   // Admin actions
+document.getElementById("btnClearScores").addEventListener("click", ()=>{
+     if (!promptPassword("Clear ALL scores")) return alert("Wrong password.");
+     if (!confirm("Are you sure you want to delete ALL saved scores on this device?")) return;
+     localStorage.removeItem("tetrisScores");
+     renderScores();
+     alert("All scores cleared.");
+   });
+
+   document.getElementById("btnClearSelected").addEventListener("click", ()=>{
+     const checks = Array.from(document.querySelectorAll(".selbox:checked"));
+     if (checks.length === 0) return alert("Please tick at least one score to clear.");
+     if (!promptPassword("Clear SELECTED scores")) return alert("Wrong password.");
+     const idsToDelete = new Set(checks.map(c=>c.getAttribute("data-id")));
+     const arr = ensureIds(loadScores());
+     const kept = arr.filter(s=>!idsToDelete.has(s.id));
+     saveScores(kept);
+     renderScores();
+     alert("Selected scores cleared.");
+   });
+
+   document.getElementById("btnBackFromScores").addEventListener("click", ()=> showScreen('screen-menu'));
+
+   // ---------- Pyodide + Game loading ----------
+   let pyodide, gameCode, gameStarted = false;
+
+   async function preloadEngine() {
+     try {
+       document.getElementById("loading").innerText = "Loading engine…";
+       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+       // Pre-fetch python so Play feels instant
+       const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
+       gameCode = await resp.text();
+       document.getElementById("loading").innerText = "Ready!";
+     } catch (e) {
+       console.error(e);
+       document.getElementById("loading").innerText = "Failed to load. See console.";
+     }
+   }
+   preloadEngine();
+
+   // Expose to Python: called on Game Over / Time Up
+   window.onGameOver = function(score, reason) {
+     const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
+     setTimeout(()=>{
+       const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
+       addScore(name, score);
+       renderScores();
+       showScreen('screen-scores');
+     }, 50);
+   }
+
+   // Play button: go to game & start (one time per page)
+   document.getElementById("btnPlay").addEventListener("click", async ()=>{
+     tryStartMusic();
+     showScreen('screen-game');
+     if (gameStarted) return;
+     gameStarted = true;
+
+     const gl = document.getElementById("gameLoading");
+     gl.innerText = "Starting game…";
+     await pyodide.runPythonAsync(gameCode);
+     gl.innerText = "Game Loaded!";
+
+     // Enable on-screen buttons
+     document.querySelectorAll("#controls button").forEach(b => b.disabled = false);
+
+     // Hook on-screen control events to Python
+     const callPy = (c) => pyodide.runPython(c);
+     document.getElementById("restartBtn").onclick = () => location.reload();
+
+     document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
+     document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
+     document.getElementById("btnRotate").addEventListener("click", () => callPy(`on_key({"key":"ArrowUp"})`));
+
+     // Down: hold + tap
+     const btnDown = document.getElementById("btnDown");
+     const downStart = () => { callPy(`start_soft_drop_hold()`); };
+     const downEnd   = () => callPy(`stop_soft_drop_hold()`);
+     btnDown.addEventListener("mousedown", downStart);
+     btnDown.addEventListener("mouseup",   downEnd);
+     btnDown.addEventListener("mouseleave",downEnd);
+     btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
+     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
+     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+     btnDown.addEventListener("click", () => { callPy(`soft_drop_tap()`); });
+   });
+
+   // Menu nav
+   document.getElementById("btnScores").addEventListener("click", ()=>{
+     renderScores(); showScreen('screen-scores');
+   });
+   document.getElementById("btnBackFromGame").addEventListener("click", ()=>{
+     // safest reset is a reload (avoids double keyboard listeners)
+     location.reload();
+   });
+
+   // Start music on first key as well
+   window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
 </html>
