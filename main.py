@@ -14,21 +14,21 @@ COLS = 10
 COLORS = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFA500", "#800080", "#00FFFF"]
 
 SHAPES = [
-   [[1, 1, 1, 1]],              # I
-   [[1, 1], [1, 1]],            # O
-   [[0, 1, 0], [1, 1, 1]],      # T
-   [[1, 0, 0], [1, 1, 1]],      # L
-   [[0, 0, 1], [1, 1, 1]],      # J
-   [[1, 1, 0], [0, 1, 1]],      # S
-   [[0, 1, 1], [1, 1, 0]]       # Z
+   [[1, 1, 1, 1]],                 # I
+   [[1, 1], [1, 1]],               # O
+   [[0, 1, 0], [1, 1, 1]],         # T
+   [[1, 0, 0], [1, 1, 1]],         # L
+   [[0, 0, 1], [1, 1, 1]],         # J
+   [[1, 1, 0], [0, 1, 1]],         # S
+   [[0, 1, 1], [1, 1, 0]]          # Z
 ]
 
 # Steady game tick
-TICK_MS = 50                     # ~20 FPS heartbeat
+TICK_MS = 50                        # ~20 FPS heartbeat
 
 # Soft drop timing
-MIN_DROP_MS = 50                 # min fall interval while dropping
-BURST_MS = 180                   # tap burst duration for Down
+MIN_DROP_MS = 50                    # min fall interval while dropping
+BURST_MS = 180                      # tap burst duration for Down
 
 # ===== State =====
 grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
@@ -109,7 +109,6 @@ def draw_info():
 
    draw_next_shape()
    return time_left
-
 # ===== Logic =====
 def check_collision(shape, pos):
    for y, row in enumerate(shape):
@@ -178,7 +177,7 @@ def rotate_cw():
    if not check_collision(rotated, shape_pos):
        current_shape = rotated
 
-def end_game(reason):
+def end_game(reason: str):
    """reason: 'gameover' or 'timeup'"""
    global game_over
    if game_over:
@@ -187,10 +186,12 @@ def end_game(reason):
    msg = "Game Over!" if reason == "gameover" else "Time Up!"
    js.document.getElementById("gameLoading").innerText = f"{msg} Score: {score}"
    js.document.getElementById("restartBtn").style.display = "inline-block"
+   # Tell the web page so it can save to Local + Firebase
    try:
-       js.onGameOver(score, reason)
+       js.onGameOver(int(score), reason)
    except Exception:
        pass
+
 # ===== Main loop (steady tick) =====
 def game_loop():
    global shape_pos, fall_accum_ms
@@ -233,6 +234,7 @@ def _norm_key(event):
        return str(event)
 
 def on_key(event):
+   """Public: called from JS for on-screen buttons too."""
    global fall_accum_ms
    if game_over:
        return
@@ -272,13 +274,14 @@ def _end_down_burst():
 _end_down_burst_proxy = create_proxy(_end_down_burst)
 
 def soft_drop_tap():
+   """Tap = brief faster fall."""
    global soft_drop_burst, burst_timer_down
    if game_over:
        return
    soft_drop_burst = True
    if burst_timer_down is not None:
        js.clearTimeout(burst_timer_down)
-   burst_timer_down = js.setTimeout(_end_down_burst_proxy, 180)
+   burst_timer_down = js.setTimeout(_end_down_burst_proxy, BURST_MS)
 
 # Keyboard handlers
 def handle_keydown(event):
@@ -298,21 +301,15 @@ game_loop_proxy = create_proxy(game_loop)
 keydown_proxy   = create_proxy(handle_keydown)
 keyup_proxy     = create_proxy(handle_keyup)
 
-js.setInterval(game_loop_proxy, 50)
+js.setInterval(game_loop_proxy, TICK_MS)
 js.document.addEventListener("keydown", keydown_proxy)
 js.document.addEventListener("keyup",   keyup_proxy)
 
 # First frame
+ctx.clearRect(0, 0, canvas.width, canvas.height)
 draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
-js.document.addEventListener("keydown", keydown_proxy)
-js.document.addEventListener("keyup",   keyup_proxy)
 
-# First frame
-draw_grid()
-draw_ghost(current_shape, shape_pos)
-draw_shape(current_shape, shape_pos, current_color)
 
-draw_info()
