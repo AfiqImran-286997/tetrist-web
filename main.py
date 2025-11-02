@@ -140,11 +140,14 @@ def clear_lines():
 
 def new_piece():
    global current_shape, current_color, next_shape, next_color, shape_pos
+   global game_over
    current_shape = next_shape
    current_color = next_color
    next_shape = random.choice(SHAPES)
    next_color = random.choice(COLORS)
    shape_pos = [COLS // 2 - len(current_shape[0]) // 2, 0]
+   if check_collision(current_shape, shape_pos):
+       end_game("gameover")
 
 def current_fall_interval_ms():
    base = int(1000 / max(0.01, speed_multiplier))
@@ -175,13 +178,25 @@ def rotate_cw():
    if not check_collision(rotated, shape_pos):
        current_shape = rotated
 
+def end_game(reason):
+   """reason: 'gameover' or 'timeup'"""
+   global game_over
+   if game_over:
+       return
+   game_over = True
+   msg = "Game Over!" if reason == "gameover" else "Time Up!"
+   js.document.getElementById("gameLoading").innerText = f"{msg} Score: {score}"
+   js.document.getElementById("restartBtn").style.display = "inline-block"
+   try:
+       js.onGameOver(score, reason)
+   except Exception:
+       pass
 # ===== Main loop (steady tick) =====
 def game_loop():
-   global shape_pos, game_over, fall_accum_ms
+   global shape_pos, fall_accum_ms
    if game_over:
        return
 
-   # Vertical drop timing
    fall_accum_ms += TICK_MS
    interval_needed = current_fall_interval_ms()
    while fall_accum_ms >= interval_needed and not game_over:
@@ -193,13 +208,7 @@ def game_loop():
            clear_lines()
            adjust_speed()
            new_piece()
-           fall_accum_ms = 0
-           if check_collision(current_shape, shape_pos):
-               game_over = True
-               js.document.getElementById("loading").innerText = f"Game Over! Score: {score}"
-               js.document.getElementById("restartBtn").style.display = "block"
 
-   # Redraw
    ctx.clearRect(0, 0, canvas.width, canvas.height)
    draw_grid()
    draw_ghost(current_shape, shape_pos)
@@ -207,9 +216,7 @@ def game_loop():
    time_left = draw_info()
 
    if time_left <= 0 and not game_over:
-       game_over = True
-       js.document.getElementById("loading").innerText = f"Time Up! Score: {score}"
-       js.document.getElementById("restartBtn").style.display = "block"
+       end_game("timeup")
 
 # ===== Input =====
 def _norm_key(event):
@@ -226,7 +233,6 @@ def _norm_key(event):
        return str(event)
 
 def on_key(event):
-   """Single-step actions (instant)."""
    global fall_accum_ms
    if game_over:
        return
@@ -236,7 +242,6 @@ def on_key(event):
    elif key == "ArrowRight":
        move_right()
    elif key == "ArrowDown":
-       # nudge down one cell + reset fall accumulator
        shape_pos[1] += 1
        if check_collision(current_shape, shape_pos):
            shape_pos[1] -= 1
@@ -244,7 +249,6 @@ def on_key(event):
    elif key == "ArrowUp":
        rotate_cw()
 
-   # immediate redraw
    ctx.clearRect(0, 0, canvas.width, canvas.height)
    draw_grid()
    draw_ghost(current_shape, shape_pos)
@@ -274,7 +278,7 @@ def soft_drop_tap():
    soft_drop_burst = True
    if burst_timer_down is not None:
        js.clearTimeout(burst_timer_down)
-   burst_timer_down = js.setTimeout(_end_down_burst_proxy, BURST_MS)
+   burst_timer_down = js.setTimeout(_end_down_burst_proxy, 180)
 
 # Keyboard handlers
 def handle_keydown(event):
@@ -294,8 +298,7 @@ game_loop_proxy = create_proxy(game_loop)
 keydown_proxy   = create_proxy(handle_keydown)
 keyup_proxy     = create_proxy(handle_keyup)
 
-js.setInterval(game_loop_proxy, TICK_MS)
-
+js.setInterval(game_loop_proxy, 50)
 js.document.addEventListener("keydown", keydown_proxy)
 js.document.addEventListener("keyup",   keyup_proxy)
 
@@ -303,4 +306,13 @@ js.document.addEventListener("keyup",   keyup_proxy)
 draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
+draw_info()
+js.document.addEventListener("keydown", keydown_proxy)
+js.document.addEventListener("keyup",   keyup_proxy)
+
+# First frame
+draw_grid()
+draw_ghost(current_shape, shape_pos)
+draw_shape(current_shape, shape_pos, current_color)
+
 draw_info()
