@@ -2,29 +2,25 @@
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
- <meta name="viewport"
-       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+ <meta
+   name="viewport"
+   content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+ />
  <title>Tetris - Web Version</title>
- <!-- Pyodide -->
- <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
- <style>
-   html, body {
-     font-size: 16px;
-     touch-action: manipulation;
-   }
-   button, input, select, textarea {
-     touch-action: manipulation;
-     -webkit-touch-callout: none;
-     -webkit-tap-highlight-color: transparent;
-     -webkit-user-select: none;
-     user-select: none;
-   }
 
+ <!-- Pyodide (Python-in-the-browser) -->
+ <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+
+ <style>
+   html, body { font-size:16px; touch-action:manipulation; }
+   button, input, select, textarea {
+     touch-action:manipulation; -webkit-touch-callout:none;
+     -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;
+   }
    :root { --gap: 12px; }
    body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
    h1 { margin:20px 0 }
-   button { cursor:pointer }
-   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px }
+   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
    .btn.primary { background:#24d15d; color:#000 }
    .btn.secondary { background:#2f7ded; color:#fff }
    .btn.ghost { background:#333; color:#fff }
@@ -33,28 +29,20 @@
    .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
    #audioStatus { font:12px/1.2 Arial, sans-serif; color:#ccc; min-height:1.2em; margin-top:6px }
-
-   /* Screens */
-   .screen { display:none }
-   .screen.active { display:block }
-
-   /* Game view */
+   .screen { display:none } .screen.active { display:block }
    #gameArea { margin-top:10px }
    canvas { border:2px solid #fff; margin-top:12px }
    #restartBtn { display:none; margin-top:12px }
-
-   /* Controls row */
    #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap }
    #controls button { font-size:24px; padding:10px 14px; margin:2px }
    #controls button.small { font-size:16px }
    #controls button:disabled { opacity:.5; cursor:not-allowed }
-
-   /* Score table */
-   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px }
+   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:640px }
    th, td { border:1px solid #555; padding:8px 10px; text-align:left }
    th { background:#1b1b1b }
    tr:nth-child(even) td { background:#141414 }
    th.sel, td.sel { width:52px; text-align:center }
+   .note { font-size:12px; opacity:.65; margin-top:6px }
  </style>
 </head>
 <body>
@@ -99,48 +87,70 @@
      </div>
    </section>
 
-   <!-- ===== SCORE BOARD SCREEN ===== -->
+   <!-- ===== SCORE BOARD ===== -->
    <section id="screen-scores" class="screen">
      <div class="card" style="min-width:340px">
        <h2>🏆 Score Board</h2>
-       <p style="opacity:.8">Top 10 highest scores on this device</p>
+       <p style="opacity:.8">Top 10 highest scores (cloud)</p>
+
        <table id="scoresTable">
          <thead>
-           <tr>
-             <th class="sel">Sel</th>
-             <th>#</th><th>Name</th><th>Score</th><th>Date</th>
-           </tr>
+         <tr>
+           <th class="sel">Sel</th>
+           <th>#</th><th>Name</th><th>Score</th><th>Date</th>
+         </tr>
          </thead>
          <tbody></tbody>
        </table>
+
        <div>
          <button id="btnClearSelected" class="btn small ghost">Clear Selected</button>
-         <button id="btnClearScores" class="btn small ghost">Clear Scores</button>
+         <button id="btnClearScores"   class="btn small ghost">Clear Scores</button>
          <button id="btnBackFromScores" class="btn small ghost">← Back to Menu</button>
        </div>
-       <p style="opacity:.6; font-size:12px; margin-top:6px">
-         (Admin password for clearing: <code>LSSIsTheBest</code>)
-       </p>
+       <p class="note">(Admin password for clearing: <code>LSSIsTheBest</code>)</p>
      </div>
    </section>
  </div>
-
- <!-- Background music (put bgm.mp3 next to this file) -->
+<!-- Background music (place bgm.mp3 beside this file) -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
- <script type="text/javascript">
-   // ---------- Screen switching ----------
+ <!-- Main app logic (ES module so we can import Firebase) -->
+ <script type="module">
+   /************ Firebase (CDN modular SDK) ************/
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+   import {
+     getFirestore, collection, addDoc, serverTimestamp,
+     query, orderBy, limit, getDocs, deleteDoc, doc
+   } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+
+   // TODO: paste YOUR exact config from the console here:
+const firebaseConfig = {
+  apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
+  authDomain: "tetrist-web.firebaseapp.com",
+  projectId: "tetrist-web",
+  storageBucket: "tetrist-web.firebasestorage.app",
+  messagingSenderId: "378076610293",
+  appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
+  measurementId: "G-6JQX0TYB56"
+};
+
+   const app = initializeApp(firebaseConfig);
+   const db  = getFirestore(app);
+   const scoresCol = collection(db, "scores");   // we’ll create this implicitly
+
+   /************ Simple screen switcher ************/
    function showScreen(id) {
      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
    }
 
-   // ---------- Music helpers with diagnostics ----------
+   /************ Music helpers ************/
    const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
    const audioStatus = document.getElementById("audioStatus");
-
    let ac;
+
    function ensureAudioContext() {
      try {
        const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -148,27 +158,24 @@
        if (ac && ac.state !== "running") ac.resume().catch(()=>{});
      } catch(e) {}
    }
-   function setStatus(msg) { audioStatus.textContent = msg || ""; }
-   function musicIsPlaying() { return !bgm.paused && !bgm.ended && bgm.currentTime > 0; }
-   function updateMusicUI() {
+   function setStatus(msg){ audioStatus.textContent = msg || ""; }
+   function updateMusicUI(){
      const mutedOrPaused = bgm.muted || bgm.volume === 0 || bgm.paused;
      btnMusic.textContent = mutedOrPaused ? "🔇 Music" : "🔊 Music";
      btnMusic.setAttribute("aria-pressed", (!mutedOrPaused).toString());
    }
-   async function tryStartMusic() {
+   async function tryStartMusic(){
      ensureAudioContext();
      const pref = localStorage.getItem("musicMuted");
      if (pref === "true") { updateMusicUI(); setStatus("Music: muted (saved)"); return; }
      try {
        bgm.muted = false; bgm.volume = 0.6; await bgm.play();
        updateMusicUI(); setStatus("Music: playing");
-     } catch {
-       updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
-     }
+     } catch { updateMusicUI(); setStatus("Music: press Music to start (autoplay)"); }
    }
-   function toggleMusic() {
+   function toggleMusic(){
      ensureAudioContext();
-     if (musicIsPlaying()) {
+     if (!bgm.paused && !bgm.ended && bgm.currentTime > 0) {
        bgm.pause(); bgm.muted = true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
      } else {
        bgm.muted = false; bgm.volume = 0.6;
@@ -178,8 +185,7 @@
      updateMusicUI();
    }
    bgm.addEventListener("canplaythrough", () => setStatus("Music: loaded (ready)"));
-   bgm.addEventListener("error", () => { const src=bgm.getAttribute("src"); setStatus(`Music: ERROR loading ${src}`); });
-
+   bgm.addEventListener("error", () => setStatus("Music: ERROR loading bgm.mp3"));
    (function initMusicPref(){
      const pref = localStorage.getItem("musicMuted");
      if (pref === "true") bgm.muted = true;
@@ -189,93 +195,93 @@
    })();
    btnMusic.addEventListener("click", toggleMusic);
 
-   // ---------- Score storage ----------
+   /************ Firestore helpers ************/
    const ADMIN_PASSWORD = "LSSIsTheBest";
 
-   function loadScores() {
-     try { return JSON.parse(localStorage.getItem("tetrisScores")||"[]"); }
-     catch { return []; }
-   }
-   function saveScores(arr) {
-     localStorage.setItem("tetrisScores", JSON.stringify(arr));
-   }
-   // Backfill IDs for any old entries without one
-   function ensureIds(arr) {
-     let changed = false;
-     arr.forEach(s=>{
-       if (!s.id) { s.id = makeId(); changed = true; }
-     });
-     if (changed) saveScores(arr);
-     return arr;
-   }
-   function makeId() {
-     if (crypto && crypto.randomUUID) return crypto.randomUUID();
-     return 'id-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-   }
-   function addScore(name, score) {
-     const arr = ensureIds(loadScores());
-     arr.push({ id: makeId(), name, score: Number(score)||0, date: new Date().toISOString() });
-     arr.sort((a,b)=>b.score-a.score);
-     saveScores(arr.slice(0, 50)); // keep last 50 best
-   }
-   function renderScores() {
-     const tbody = document.querySelector("#scoresTable tbody");
-     tbody.innerHTML = "";
-     const data = ensureIds(loadScores()).sort((a,b)=>b.score-a.score).slice(0,10);
-     if (data.length === 0) {
-       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
-       return;
+   async function saveScoreToCloud(name, score){
+     try {
+       await addDoc(scoresCol, {
+         name: String(name || "Player").slice(0,40),
+         score: Number(score) || 0,
+         createdAt: serverTimestamp(),
+         ua: navigator.userAgent || "",
+         platform: navigator.platform || ""
+       });
+     } catch (e) {
+       console.warn("Cloud save failed (will still keep local):", e);
      }
-     data.forEach((row, i)=>{
-       const tr = document.createElement("tr");
-       const d = new Date(row.date);
-       tr.innerHTML =
-         `<td class="sel"><input type="checkbox" class="selbox" data-id="${row.id}"></td>
-          <td>${i+1}</td>
-          <td>${escapeHtml(row.name||"Player")}</td>
-          <td>${row.score}</td>
-          <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>`;
-       tbody.appendChild(tr);
-     });
    }
+
+   async function fetchTopScoresAndRender(){
+     const tbody = document.querySelector("#scoresTable tbody");
+     tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Loading…</td></tr>`;
+     try {
+       const qTop = query(scoresCol, orderBy("score","desc"), orderBy("createdAt","desc"), limit(10));
+       const snap = await getDocs(qTop);
+       const rows = [];
+       let i = 1;
+       snap.forEach(docu => {
+         const d = docu.data();
+         rows.push({
+           id: docu.id,
+           idx: i++,
+           name: d.name || "Player",
+           score: d.score || 0,
+           date: d.createdAt?.toDate?.() || new Date()
+         });
+       });
+       if (rows.length === 0) {
+         tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
+         return;
+       }
+       tbody.innerHTML = rows.map(r => `
+         <tr>
+           <td class="sel"><input type="checkbox" class="selbox" data-id="${r.id}"></td>
+           <td>${r.idx}</td>
+           <td>${escapeHtml(r.name)}</td>
+           <td>${r.score}</td>
+           <td>${r.date.toLocaleDateString()} ${r.date.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+         </tr>
+       `).join("");
+     } catch (e) {
+       console.error(e);
+       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?).</td></tr>`;
+     }
+   }
+
    function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+   function promptPassword(label){ return prompt(`${label}\nEnter admin password:`) === ADMIN_PASSWORD; }
 
-   function promptPassword(actionLabel) {
-     const pw = prompt(`${actionLabel}\nEnter admin password:`);
-     return pw === ADMIN_PASSWORD;
-   }
-
-   // Admin actions
-document.getElementById("btnClearScores").addEventListener("click", ()=>{
-     if (!promptPassword("Clear ALL scores")) return alert("Wrong password.");
-     if (!confirm("Are you sure you want to delete ALL saved scores on this device?")) return;
-     localStorage.removeItem("tetrisScores");
-     renderScores();
+   document.getElementById("btnClearScores").addEventListener("click", async ()=>{
+     if (!promptPassword("Clear ALL scores (cloud)")) return alert("Wrong password.");
+     if (!confirm("Delete ALL scores from Firestore?")) return;
+     // Delete top 1000 (safety pass)
+     const snap = await getDocs(query(scoresCol, orderBy("createdAt","desc"), limit(1000)));
+     const ops = [];
+     snap.forEach(d => ops.push(deleteDoc(doc(db,"scores", d.id))));
+     await Promise.allSettled(ops);
+     await fetchTopScoresAndRender();
      alert("All scores cleared.");
    });
 
-   document.getElementById("btnClearSelected").addEventListener("click", ()=>{
-     const checks = Array.from(document.querySelectorAll(".selbox:checked"));
+   document.getElementById("btnClearSelected").addEventListener("click", async ()=>{
+     const checks = [...document.querySelectorAll(".selbox:checked")];
      if (checks.length === 0) return alert("Please tick at least one score to clear.");
-     if (!promptPassword("Clear SELECTED scores")) return alert("Wrong password.");
-     const idsToDelete = new Set(checks.map(c=>c.getAttribute("data-id")));
-     const arr = ensureIds(loadScores());
-     const kept = arr.filter(s=>!idsToDelete.has(s.id));
-     saveScores(kept);
-     renderScores();
+     if (!promptPassword("Clear SELECTED scores (cloud)")) return alert("Wrong password.");
+     await Promise.allSettled(checks.map(c => deleteDoc(doc(db,"scores", c.dataset.id))));
+     await fetchTopScoresAndRender();
      alert("Selected scores cleared.");
    });
 
    document.getElementById("btnBackFromScores").addEventListener("click", ()=> showScreen('screen-menu'));
 
-   // ---------- Pyodide + Game loading ----------
+   /************ Pyodide + Game ************/
    let pyodide, gameCode, gameStarted = false;
 
-   async function preloadEngine() {
+   async function preloadEngine(){
      try {
        document.getElementById("loading").innerText = "Loading engine…";
-       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-       // Pre-fetch python so Play feels instant
+       pyodide  = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
        const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
        gameCode = await resp.text();
        document.getElementById("loading").innerText = "Ready!";
@@ -286,18 +292,23 @@ document.getElementById("btnClearScores").addEventListener("click", ()=>{
    }
    preloadEngine();
 
-   // Expose to Python: called on Game Over / Time Up
-   window.onGameOver = function(score, reason) {
-     const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
-     setTimeout(()=>{
+   // Called by Python when a round ends
+   window.onGameOver = async function(score, reason){
+     const nice = (reason === "timeup") ? "Time Up!" : "Game Over!";
+     setTimeout(async ()=>{
        const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
-       addScore(name, score);
-       renderScores();
+       // Save to cloud (primary) — also keep a tiny local backup just in case
+       try { await saveScoreToCloud(name, score); } catch(e){}
+       let backup = [];
+       try { backup = JSON.parse(localStorage.getItem("tetrisScores")||"[]"); } catch {}
+       backup.push({ name, score, date: new Date().toISOString() });
+       localStorage.setItem("tetrisScores", JSON.stringify(backup.slice(-50)));
+       await fetchTopScoresAndRender();
        showScreen('screen-scores');
-     }, 50);
-   }
+     }, 60);
+   };
 
-   // Play button: go to game & start (one time per page)
+   // Play: start Python game once
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
      tryStartMusic();
      showScreen('screen-game');
@@ -313,36 +324,31 @@ document.getElementById("btnClearScores").addEventListener("click", ()=>{
      document.querySelectorAll("#controls button").forEach(b => b.disabled = false);
 
      // Hook on-screen control events to Python
-     const callPy = (c) => pyodide.runPython(c);
+     const callPy = c => pyodide.runPython(c);
      document.getElementById("restartBtn").onclick = () => location.reload();
 
-     document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
+     document.getElementById("btnLeft") .addEventListener("click", () => callPy(`on_key({"key":"ArrowLeft"})`));
      document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
      document.getElementById("btnRotate").addEventListener("click", () => callPy(`on_key({"key":"ArrowUp"})`));
 
-     // Down: hold + tap
+     // Down (hold + tap)
      const btnDown = document.getElementById("btnDown");
      const downStart = () => { callPy(`start_soft_drop_hold()`); };
-     const downEnd   = () => callPy(`stop_soft_drop_hold()`);
+     const downEnd   = () => { callPy(`stop_soft_drop_hold()`); };
      btnDown.addEventListener("mousedown", downStart);
      btnDown.addEventListener("mouseup",   downEnd);
      btnDown.addEventListener("mouseleave",downEnd);
      btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
      btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
      btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
-     btnDown.addEventListener("click", () => { callPy(`soft_drop_tap()`); });
+     btnDown.addEventListener("click", () => callPy(`soft_drop_tap()`));
    });
 
    // Menu nav
    document.getElementById("btnScores").addEventListener("click", ()=>{
-     renderScores(); showScreen('screen-scores');
+     fetchTopScoresAndRender(); showScreen('screen-scores');
    });
-   document.getElementById("btnBackFromGame").addEventListener("click", ()=>{
-     // safest reset is a reload (avoids double keyboard listeners)
-     location.reload();
-   });
-
-   // Start music on first key as well
+   document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
    window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
