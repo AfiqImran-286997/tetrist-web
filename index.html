@@ -15,56 +15,51 @@
      touch-action: manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
-   :root {
-     --gap: 12px;
-     /* === BG sizing (you can tweak these) === */
-     --bg-size-desktop: 520px;  /* watermark size on desktop */
-     --bg-size-mobile: 260px;   /* watermark size on phones */
-     --bg-opacity: 0.12;        /* how faint the logo looks */
-   }
-   body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
 
-   /* === BG START === */
-   /* Fixed, non-interactive watermark behind everything */
-   #bg {
-     position: fixed;
-     inset: 0;
-     background: center/var(--bg-size-desktop) no-repeat url('lss-bg.png');
-     opacity: var(--bg-opacity);
-     filter: none;                /* try blur(2px) if you want */
-     pointer-events: none;        /* clicks pass through */
-     z-index: 0;
-   }
-   /* Dark overlay so the board stays readable even with a bright logo */
-   #bg::after{
-     content:"";
-     position:absolute; inset:0;
-     background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.8) 100%);
-   }
-   /* Make the content float above the background */
-   .wrap, .screen, .card { position: relative; z-index: 1; }
-   /* Phone sizing */
-   @media (max-width: 600px) {
-     #bg { background-size: var(--bg-size-mobile); opacity: 0.10; }
-   }
-   /* === BG END === */
+   /* === BACKGROUND IMAGE (your uploaded file) === */
+   body{
+     margin:0;
+     font-family:Arial, sans-serif;
+     color:#fff;
+     text-align:center;
 
-   h1 { margin:20px 0 }
+     /* use your repo image */
+     background-image:url("LSS tetris background.png");
+     background-size:cover;          /* cover screen */
+     background-position:center;     /* keep centered */
+     background-attachment:fixed;    /* nice feel on desktop */
+     background-repeat:no-repeat;
+   }
+
+   :root { --gap: 12px; }
+
+   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.5); }
+
+   /* Semi-transparent cards */
+   .card{
+     display:inline-block;
+     padding:18px;
+     border-radius:10px;
+     border:1px solid rgba(255,255,255,.15);
+     background:rgba(0,0,0,.45);           /* <— translucency */
+     backdrop-filter:saturate(120%) blur(1px);
+     -webkit-backdrop-filter:saturate(120%) blur(1px);
+   }
+
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
    .btn.primary { background:#24d15d; color:#000 }
    .btn.secondary { background:#2f7ded; color:#fff }
    .btn.ghost { background:#333; color:#fff }
    .btn.small { font-size:14px; padding:8px 12px }
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
-   .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
-   #audioStatus { font:12px/1.2 Arial,sans-serif; color:#ccc; min-height:1.2em; margin-top:6px }
+   #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6)}
 
    .screen { display:none }
    .screen.active { display:block }
 
    #gameArea { margin-top:10px }
-   canvas { border:2px solid #fff; margin-top:12px }
+   canvas { border:2px solid rgba(255,255,255,.85); margin-top:12px }
    #restartBtn { display:none; margin-top:12px }
 
    #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap }
@@ -73,24 +68,20 @@
    #controls button:disabled { opacity:.5; cursor:not-allowed }
 
    table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px }
-   th, td { border:1px solid #555; padding:8px 10px; text-align:left }
-   th { background:#1b1b1b }
-   tr:nth-child(even) td { background:#141414 }
+   th, td { border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25) }
+   th { background:rgba(0,0,0,.35) }
+   tr:nth-child(even) td { background:rgba(0,0,0,.20) }
    th.sel, td.sel { width:52px; text-align:center }
-   .muted { opacity:.75; font-size:12px }
+   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
  </style>
 </head>
 <body>
- <!-- background watermark -->
- <div id="bg" aria-hidden="true"></div>
-
  <div class="wrap">
    <h1>Tetris - Web Version</h1>
 
-   <!-- GLOBAL: Music + BG toggle -->
+   <!-- Music control -->
    <div class="card" style="margin-bottom:14px">
      <button id="btnMusic" class="btn small ghost" aria-pressed="false" title="Toggle music">🔇 Music</button>
-     <button id="btnBg" class="btn small ghost" title="Toggle background">🎨 Background: on</button>
      <div id="audioStatus"></div>
    </div>
 
@@ -153,7 +144,8 @@
      </div>
    </section>
  </div>
-<!-- Background music (put bgm.mp3 next to this file) -->
+
+ <!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
  <!-- =========================  APP SCRIPT  ========================= -->
@@ -174,17 +166,6 @@
    bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bgm.mp3"));
    (function initMusicPref(){ if(localStorage.getItem("musicMuted")==="true") bgm.muted=true; updateMusicUI(); const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);}; window.addEventListener("pointerdown",kick,{once:true}); })();
 
-   /* ----------------- Background toggle ----------------- */
-   const bgDiv = document.getElementById('bg');
-   const btnBg = document.getElementById('btnBg');
-   function setBg(enabled){
-     bgDiv.style.display = enabled ? 'block' : 'none';
-     btnBg.textContent = enabled ? '🎨 Background: on' : '🎨 Background: off';
-     localStorage.setItem('bgEnabled', enabled ? '1' : '0');
-   }
-   btnBg.addEventListener('click', ()=> setBg(bgDiv.style.display === 'none'));
-   setBg(localStorage.getItem('bgEnabled') !== '0');
-
    /* ----------------- Screen switching ----------------- */
    function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
@@ -195,7 +176,6 @@
      query, orderBy, limit, deleteDoc, doc, onSnapshot
    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-   // ✅ Your config (public client keys)
 const firebaseConfig = {
   apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
   authDomain: "tetrist-web.firebaseapp.com",
@@ -212,12 +192,10 @@ const firebaseConfig = {
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
-
    const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
                        .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
-   // ---- LIVE SCOREBOARD (onSnapshot) ----
    let unsubscribeScores = null;
    const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
 
@@ -234,9 +212,8 @@ const firebaseConfig = {
        tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>`;
      });
    }
-   function detachScoresListener(){
-     if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; }
-   }
+   function detachScoresListener(){ if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; } }
+
    function renderRows(rows){
      tbody.innerHTML = "";
      if (!rows.length){
@@ -254,14 +231,21 @@ const firebaseConfig = {
        tbody.appendChild(tr);
      });
    }
+
    async function addScoreToCloud(name, score){
      try{
        await addDoc(collection(db,"scores"), { name: name||"Player", score: Number(score)||0, createdAt: serverTimestamp() });
      }catch(e){ console.error("addScore:", e); }
    }
-   function checkAdmin(label){
-     const pw = prompt(`${label}\nEnter admin password:`); return pw && pw === ADMIN_PASSWORD;
+
+   function checkAdmin(label){ const pw = prompt(`${label}\nEnter admin password:`); return pw && pw === ADMIN_PASSWORD; }
+
+   function disableCloudButtons(disable, cache){
+     const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
+     if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
+     controls.forEach((b,i)=> b.disabled = cache ? cache[i] : false);
    }
+
    async function cloudDeleteSelected(){
      if (!checkAdmin("Clear SELECTED rows?")) return;
      const btns = disableCloudButtons(true);
@@ -273,6 +257,7 @@ const firebaseConfig = {
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
+
    async function cloudClearAll(){
      if (!checkAdmin("Clear ALL scores that are currently shown?")) return;
      const btns = disableCloudButtons(true);
@@ -284,11 +269,6 @@ const firebaseConfig = {
      }catch(e){ console.error(e); alert("Failed to clear scores (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
-   function disableCloudButtons(disable, cache){
-     const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
-     if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
-     controls.forEach((b,i)=> b.disabled = cache ? cache[i] : false);
-   }
 
    /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
@@ -297,8 +277,9 @@ const firebaseConfig = {
      const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
        const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
-       await addScoreToCloud(name, score);    // ⛅ save to Firestore
-       showScreen('screen-scores');           // listener will show the new list
+       await addScoreToCloud(name, score);
+       attachScoresListener();
+       showScreen('screen-scores');
      }, 50);
    };
 
@@ -328,17 +309,14 @@ const firebaseConfig = {
      await pyodide.runPythonAsync(gameCode);
      gl.innerText = "Game Loaded!";
 
-     // Enable on-screen buttons
      document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
 
-     // Hook on-screen control events to Python
      const callPy = (c)=> pyodide.runPython(c);
      document.getElementById("restartBtn").onclick = () => location.reload();
      document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
      document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
-     document.getElementById("btnRotate").addEventListener("click",()=> callPy(`on_key({"key":"ArrowUp"})`));
+     document.getElementById("btnRotate").addEventListener("click",() => callPy(`on_key({"key":"ArrowUp"})`));
 
-     // Down: hold + tap
      const btnDown = document.getElementById("btnDown");
      const downStart = () => { callPy(`start_soft_drop_hold()`); };
      const downEnd   = () => callPy(`stop_soft_drop_hold()`);
@@ -359,6 +337,7 @@ const firebaseConfig = {
      detachScoresListener();
      showScreen('screen-menu');
    });
+
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
 
