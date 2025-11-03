@@ -15,15 +15,47 @@
      touch-action: manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
-   :root { --gap: 12px; }
+   :root {
+     --gap: 12px;
+     /* === BG sizing (you can tweak these) === */
+     --bg-size-desktop: 520px;  /* watermark size on desktop */
+     --bg-size-mobile: 260px;   /* watermark size on phones */
+     --bg-opacity: 0.12;        /* how faint the logo looks */
+   }
    body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
+
+   /* === BG START === */
+   /* Fixed, non-interactive watermark behind everything */
+   #bg {
+     position: fixed;
+     inset: 0;
+     background: center/var(--bg-size-desktop) no-repeat url('lss-bg.png');
+     opacity: var(--bg-opacity);
+     filter: none;                /* try blur(2px) if you want */
+     pointer-events: none;        /* clicks pass through */
+     z-index: 0;
+   }
+   /* Dark overlay so the board stays readable even with a bright logo */
+   #bg::after{
+     content:"";
+     position:absolute; inset:0;
+     background: radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.5) 55%, rgba(0,0,0,0.8) 100%);
+   }
+   /* Make the content float above the background */
+   .wrap, .screen, .card { position: relative; z-index: 1; }
+   /* Phone sizing */
+   @media (max-width: 600px) {
+     #bg { background-size: var(--bg-size-mobile); opacity: 0.10; }
+   }
+   /* === BG END === */
+
    h1 { margin:20px 0 }
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
    .btn.primary { background:#24d15d; color:#000 }
    .btn.secondary { background:#2f7ded; color:#fff }
    .btn.ghost { background:#333; color:#fff }
    .btn.small { font-size:14px; padding:8px 12px }
-   .wrap { max-width:900px; margin:0 auto; padding:10px 16px; position:relative; z-index:2 }
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
    .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
    #audioStatus { font:12px/1.2 Arial,sans-serif; color:#ccc; min-height:1.2em; margin-top:6px }
@@ -46,38 +78,19 @@
    tr:nth-child(even) td { background:#141414 }
    th.sel, td.sel { width:52px; text-align:center }
    .muted { opacity:.75; font-size:12px }
-
-   /* ===== Background during gameplay ===== */
-body.game-mode {
- background-image: url('LSS%20tetrist%20background.png');
- background-size: contain;      /* ✅ show the whole image */
- background-repeat: no-repeat;  /* ✅ prevent tiling */
- background-position: center;   /* ✅ center it */
- background-color: #000;        /* ✅ fill edges with black */
-}
-   /* Soft darkening so the board pops */
-   body.game-mode::before{
-     content:"";
-     position:fixed;
-     inset:0;
-     background:rgba(0,0,0,.45);
-     z-index:1;           /* sits under .wrap content */
-     pointer-events:none;
-   }
-   /* Make the game card slightly transparent so bg peeks through */
-   body.game-mode #screen-game .card{
-     background:rgba(17,17,17,.92);
-     backdrop-filter: blur(1px);
-   }
  </style>
 </head>
 <body>
+ <!-- background watermark -->
+ <div id="bg" aria-hidden="true"></div>
+
  <div class="wrap">
    <h1>Tetris - Web Version</h1>
 
-   <!-- GLOBAL: Music control -->
+   <!-- GLOBAL: Music + BG toggle -->
    <div class="card" style="margin-bottom:14px">
      <button id="btnMusic" class="btn small ghost" aria-pressed="false" title="Toggle music">🔇 Music</button>
+     <button id="btnBg" class="btn small ghost" title="Toggle background">🎨 Background: on</button>
      <div id="audioStatus"></div>
    </div>
 
@@ -140,8 +153,7 @@ body.game-mode {
      </div>
    </section>
  </div>
-
- <!-- Background music (put bgm.mp3 next to this file) -->
+<!-- Background music (put bgm.mp3 next to this file) -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
  <!-- =========================  APP SCRIPT  ========================= -->
@@ -162,13 +174,19 @@ body.game-mode {
    bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bgm.mp3"));
    (function initMusicPref(){ if(localStorage.getItem("musicMuted")==="true") bgm.muted=true; updateMusicUI(); const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);}; window.addEventListener("pointerdown",kick,{once:true}); })();
 
-   /* ----------------- Screen switching ----------------- */
-   function showScreen(id){
-     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-     document.getElementById(id).classList.add('active');
-     // Toggle background only during gameplay
-     document.body.classList.toggle('game-mode', id === 'screen-game');
+   /* ----------------- Background toggle ----------------- */
+   const bgDiv = document.getElementById('bg');
+   const btnBg = document.getElementById('btnBg');
+   function setBg(enabled){
+     bgDiv.style.display = enabled ? 'block' : 'none';
+     btnBg.textContent = enabled ? '🎨 Background: on' : '🎨 Background: off';
+     localStorage.setItem('bgEnabled', enabled ? '1' : '0');
    }
+   btnBg.addEventListener('click', ()=> setBg(bgDiv.style.display === 'none'));
+   setBg(localStorage.getItem('bgEnabled') !== '0');
+
+   /* ----------------- Screen switching ----------------- */
+   function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -187,6 +205,7 @@ const firebaseConfig = {
   appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
   measurementId: "G-6JQX0TYB56"
 };
+
    const app = initializeApp(firebaseConfig);
    const db  = getFirestore(app);
 
@@ -203,7 +222,7 @@ const firebaseConfig = {
    const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
 
    function attachScoresListener(){
-     if (unsubscribeScores) return; // already attached
+     if (unsubscribeScores) return;
      unsubscribeScores = onSnapshot(topQuery, (snap)=>{
        const rows = [];
        snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
@@ -215,11 +234,9 @@ const firebaseConfig = {
        tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>`;
      });
    }
-
    function detachScoresListener(){
      if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; }
    }
-
    function renderRows(rows){
      tbody.innerHTML = "";
      if (!rows.length){
@@ -237,17 +254,14 @@ const firebaseConfig = {
        tbody.appendChild(tr);
      });
    }
-
    async function addScoreToCloud(name, score){
      try{
        await addDoc(collection(db,"scores"), { name: name||"Player", score: Number(score)||0, createdAt: serverTimestamp() });
      }catch(e){ console.error("addScore:", e); }
    }
-
    function checkAdmin(label){
      const pw = prompt(`${label}\nEnter admin password:`); return pw && pw === ADMIN_PASSWORD;
    }
-
    async function cloudDeleteSelected(){
      if (!checkAdmin("Clear SELECTED rows?")) return;
      const btns = disableCloudButtons(true);
@@ -259,7 +273,6 @@ const firebaseConfig = {
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
-
    async function cloudClearAll(){
      if (!checkAdmin("Clear ALL scores that are currently shown?")) return;
      const btns = disableCloudButtons(true);
@@ -271,7 +284,6 @@ const firebaseConfig = {
      }catch(e){ console.error(e); alert("Failed to clear scores (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
-
    function disableCloudButtons(disable, cache){
      const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
      if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
@@ -291,7 +303,7 @@ const firebaseConfig = {
    };
 
    async function preloadEngine(){
-try{
+     try{
        document.getElementById("loading").innerText = "Loading engine…";
        pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
        const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
@@ -340,15 +352,13 @@ try{
    });
 
    document.getElementById("btnScores").addEventListener("click", ()=>{
-     attachScoresListener();        // start live updates when entering scoreboard
+     attachScoresListener();
      showScreen('screen-scores');
    });
-
    document.getElementById("btnBackFromScores").addEventListener("click", ()=>{
-     detachScoresListener();        // optional: stop listening when leaving
+     detachScoresListener();
      showScreen('screen-menu');
    });
-
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
 
@@ -357,6 +367,7 @@ try{
  </script>
 </body>
 </html>
+
 
 
 
