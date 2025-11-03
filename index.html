@@ -8,7 +8,7 @@
  />
  <title>Tetris - Web Version</title>
 
- <!-- Pyodide for running Python in the browser -->
+ <!-- Pyodide (Python in the browser) -->
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
  <style>
@@ -20,16 +20,16 @@
    :root { --gap: 12px; }
    body { background:#000; color:#fff; font-family:Arial, sans-serif; text-align:center; margin:0 }
    h1 { margin:20px 0 }
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
+   .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
+   .screen { display:none } .screen.active { display:block }
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
    .btn.primary { background:#24d15d; color:#000 }
    .btn.secondary { background:#2f7ded; color:#fff }
    .btn.ghost { background:#333; color:#fff }
    .btn.small { font-size:14px; padding:8px 12px }
-   .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
-   .card { display:inline-block; background:#111; padding:18px; border:1px solid #444; border-radius:10px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
    #audioStatus { font:12px/1.2 Arial, sans-serif; color:#ccc; min-height:1.2em; margin-top:6px }
-   .screen { display:none } .screen.active { display:block }
    #gameArea { margin-top:10px }
    canvas { border:2px solid #fff; margin-top:12px }
    #restartBtn { display:none; margin-top:12px }
@@ -37,12 +37,10 @@
    #controls button { font-size:24px; padding:10px 14px; margin:2px }
    #controls button.small { font-size:16px }
    #controls button:disabled { opacity:.5; cursor:not-allowed }
-   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:640px }
+   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px }
    th, td { border:1px solid #555; padding:8px 10px; text-align:left }
-   th { background:#1b1b1b }
-   tr:nth-child(even) td { background:#141414 }
+   th { background:#1b1b1b } tr:nth-child(even) td { background:#141414 }
    th.sel, td.sel { width:52px; text-align:center }
-   .note { font-size:12px; opacity:.65; margin-top:6px }
  </style>
 </head>
 <body>
@@ -55,7 +53,7 @@
      <div id="audioStatus"></div>
    </div>
 
-   <!-- ===== MENU SCREEN ===== -->
+   <!-- ===== MENU ===== -->
    <section id="screen-menu" class="screen active">
      <div class="card">
        <p id="loading">Loading engine…</p>
@@ -66,14 +64,14 @@
      </div>
    </section>
 
-   <!-- ===== GAME SCREEN ===== -->
+   <!-- ===== GAME ===== -->
    <section id="screen-game" class="screen">
      <div id="gameArea" class="card">
        <p id="gameLoading" style="color:#ff0; min-height:1.2em">Loading game, please wait…</p>
        <canvas id="gameCanvas" width="300" height="600"></canvas><br />
        <button id="restartBtn" class="btn ghost">Restart Game</button>
 
-       <!-- On-screen controls (mobile) -->
+       <!-- Mobile buttons -->
        <div id="controls">
          <button id="btnLeft"  disabled aria-label="Move left">◀</button>
          <button id="btnRight" disabled aria-label="Move right">▶</button>
@@ -87,47 +85,47 @@
      </div>
    </section>
 
-   <!-- ===== SCORE BOARD ===== -->
+   <!-- ===== SCORES ===== -->
    <section id="screen-scores" class="screen">
      <div class="card" style="min-width:340px">
        <h2>🏆 Score Board</h2>
-       <p id="cloudStatus" style="opacity:.7;font-size:12px">Cloud: checking…</p>
+       <div class="cloudBadge" style="margin-bottom:6px; color:#ffb;">Cloud: not loaded</div>
        <p style="opacity:.8">Top 10 highest scores (cloud)</p>
-
        <table id="scoresTable">
          <thead>
-         <tr>
-           <th class="sel">Sel</th>
-           <th>#</th><th>Name</th><th>Score</th><th>Date</th>
-         </tr>
+           <tr>
+             <th class="sel">Sel</th>
+             <th>#</th><th>Name</th><th>Score</th><th>Date</th>
+           </tr>
          </thead>
-         <tbody></tbody>
+         <tbody>
+           <tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Loading…</td></tr>
+         </tbody>
        </table>
-
        <div>
-         <button id="btnClearSelected" class="btn small ghost">Clear Selected</button>
-         <button id="btnClearScores"   class="btn small ghost">Clear Scores</button>
+         <button id="btnClearSelected" class="btn small ghost" title="UI only — no cloud delete implemented">Clear Selected</button>
+         <button id="btnClearScores" class="btn small ghost" title="UI only — no cloud delete implemented">Clear Scores</button>
          <button id="btnBackFromScores" class="btn small ghost">← Back to Menu</button>
        </div>
-       <p class="note">(Admin password for clearing: <code>LSSIsTheBest</code>)</p>
+       <p style="opacity:.6; font-size:12px; margin-top:6px">
+         (Admin password for clearing: <code>LSSIsTheBest</code>)
+       </p>
      </div>
    </section>
  </div>
 
- <!-- Background music (place bgm.mp3 beside this file) -->
+ <!-- Background music (keep bgm.mp3 next to this file) -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
- <!-- Main script -->
+ <!-- ===== Firebase (CDN ES Modules) ===== -->
  <script type="module">
-   /************ FIREBASE SETUP ************/
    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
    import {
-     initializeFirestore,
-     collection, addDoc, getDocs, query, orderBy, limit,
-     serverTimestamp, deleteDoc, doc
+     getFirestore, collection, addDoc, serverTimestamp,
+     query, orderBy, limit, getDocs
    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-   // 🔹 Replace these with your Firebase project settings:
+   // 🔁 REPLACE with your own values from Firebase console
 const firebaseConfig = {
   apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
   authDomain: "tetrist-web.firebaseapp.com",
@@ -137,25 +135,89 @@ const firebaseConfig = {
   appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
   measurementId: "G-6JQX0TYB56"
 };
+   let app, db;
+   function ensureFirebase() {
+     if (!app) {
+       app = initializeApp(firebaseConfig);
+       db  = getFirestore(app);
+       console.log("[Firebase] initialized");
+     }
+     return { app, db };
+   }
 
-   // Initialize app + Firestore with mobile compatibility
-   const app = initializeApp(firebaseConfig);
-   const db = initializeFirestore(app, {
-     experimentalAutoDetectLongPolling: true,
-     useFetchStreams: false
-   });
+   async function saveScoreCloud(name, score) {
+     try {
+       ensureFirebase();
+       await addDoc(collection(db, "scores"), {
+         name: String(name || "Player").slice(0, 40),
+         score: Number(score) || 0,
+         createdAt: serverTimestamp()
+       });
+       console.log("[Cloud] score saved");
+     } catch (err) {
+       console.error("[Cloud] save failed:", err);
+     }
+   }
 
-   /************ SCREEN SWITCHING ************/
+   async function fetchTopScoresCloud() {
+     ensureFirebase();
+     const q = query(collection(db, "scores"), orderBy("score", "desc"), limit(10));
+     const snap = await getDocs(q);
+     const rows = [];
+     snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+     return rows;
+   }
+
+   function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c])); }
+
+   async function renderScoresCloud() {
+     const card = document.querySelector("#screen-scores .cloudBadge");
+     const tbody = document.querySelector("#scoresTable tbody");
+     card.textContent = "Cloud: loading…";
+     tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Loading…</td></tr>`;
+     try {
+       const rows = await fetchTopScoresCloud();
+       tbody.innerHTML = "";
+       if (!rows.length) {
+         tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
+       } else {
+         rows.forEach((row, i) => {
+           const d = row.createdAt?.toDate ? row.createdAt.toDate() : new Date();
+           const tr = document.createElement("tr");
+           tr.innerHTML = `
+             <td class="sel"><input type="checkbox" class="selbox" data-id="${row.id}"></td>
+             <td>${i+1}</td>
+             <td>${escapeHtml(row.name || "Player")}</td>
+             <td>${row.score ?? 0}</td>
+             <td>${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>`;
+           tbody.appendChild(tr);
+         });
+       }
+       card.textContent = "Cloud ✓";
+     } catch (e) {
+       console.error(e);
+       card.textContent = "Cloud error ✖";
+       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>`;
+     }
+   }
+
+   // Expose to the non-module script below
+   window.saveScoreCloud = saveScoreCloud;
+   window.renderScoresCloud = renderScoresCloud;
+ </script>
+
+ <!-- ===== App UI & Pyodide/Game wiring ===== -->
+ <script>
+   // ---------- Simple screen router ----------
    function showScreen(id) {
      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
    }
 
-   /************ MUSIC CONTROL ************/
-   const bgm = document.getElementById("bgm");
+   // ---------- Music ----------
+const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
    const audioStatus = document.getElementById("audioStatus");
-
    let ac;
    function ensureAudioContext() {
      try {
@@ -164,174 +226,129 @@ const firebaseConfig = {
        if (ac && ac.state !== "running") ac.resume().catch(()=>{});
      } catch(e) {}
    }
-
+   function setStatus(msg) { audioStatus.textContent = msg || ""; }
    function updateMusicUI() {
      const mutedOrPaused = bgm.muted || bgm.volume === 0 || bgm.paused;
      btnMusic.textContent = mutedOrPaused ? "🔇 Music" : "🔊 Music";
+     btnMusic.setAttribute("aria-pressed", (!mutedOrPaused).toString());
    }
-
    async function tryStartMusic() {
      ensureAudioContext();
+     const pref = localStorage.getItem("musicMuted");
+     if (pref === "true") { updateMusicUI(); setStatus("Music: muted (saved)"); return; }
      try {
        bgm.muted = false; bgm.volume = 0.6; await bgm.play();
-       audioStatus.textContent = "Music: playing";
-     } catch { audioStatus.textContent = "Music: tap to play"; }
-     updateMusicUI();
+       updateMusicUI(); setStatus("Music: playing");
+     } catch {
+       updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
+     }
    }
-
    function toggleMusic() {
      ensureAudioContext();
-     if (!bgm.paused && bgm.currentTime > 0) {
-       bgm.pause(); bgm.muted = true; localStorage.setItem("musicMuted","true");
-       audioStatus.textContent = "Music: paused";
+     if (!bgm.paused && !bgm.ended && bgm.currentTime > 0) {
+       bgm.pause(); bgm.muted = true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
      } else {
        bgm.muted = false; bgm.volume = 0.6;
-       bgm.play().then(()=>audioStatus.textContent="Music: playing").catch(()=>audioStatus.textContent="Music: couldn't start");
+       bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start"));
        localStorage.setItem("musicMuted","false");
      }
      updateMusicUI();
    }
+   bgm.addEventListener("canplaythrough", () => setStatus("Music: loaded (ready)"));
+   bgm.addEventListener("error", () => setStatus("Music: ERROR loading bgm.mp3"));
 
    (function initMusicPref(){
-     if (localStorage.getItem("musicMuted")==="true") bgm.muted = true;
+     const pref = localStorage.getItem("musicMuted");
+     if (pref === "true") bgm.muted = true;
      updateMusicUI();
-     window.addEventListener("pointerdown", tryStartMusic, { once:true });
+     const kick = () => { tryStartMusic(); window.removeEventListener("pointerdown", kick); };
+     window.addEventListener("pointerdown", kick, { once:true });
    })();
    btnMusic.addEventListener("click", toggleMusic);
+   window.addEventListener("keydown", tryStartMusic, { once:true });
 
-   /************ FIRESTORE HELPERS ************/
-   const ADMIN_PASSWORD = "LSSIsTheBest";
-   const scoresCol = collection(db, "scores");
-
-   async function saveScore(name, score) {
-     await addDoc(scoresCol, {
-       name: name || "Player",
-       score: Number(score) || 0,
-       createdAt: serverTimestamp()
-     });
-   }
-
-   async function loadScores() {
-     const tbody = document.querySelector("#scoresTable tbody");
-     tbody.innerHTML = "<tr><td></td><td colspan='4'>Loading...</td></tr>";
-
-     try {
-       const q = query(scoresCol, orderBy("score","desc"), orderBy("createdAt","desc"), limit(10));
-       const snap = await getDocs(q);
-       if (snap.empty) {
-         tbody.innerHTML = "<tr><td></td><td colspan='4'>No scores yet.</td></tr>";
-         document.getElementById("cloudStatus").textContent = "Cloud: connected (0 scores)";
-         return;
-       }
-       let i = 1;
-       tbody.innerHTML = "";
-       snap.forEach(docu=>{
-         const d = docu.data();
-         const date = d.createdAt?.toDate?.() || new Date();
-         tbody.innerHTML += `
-           <tr>
-             <td class="sel"><input type="checkbox" class="selbox" data-id="${docu.id}"></td>
-             <td>${i++}</td>
-             <td>${d.name}</td>
-             <td>${d.score}</td>
-             <td>${date.toLocaleDateString()} ${date.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td>
-           </tr>`;
-       });
-       document.getElementById("cloudStatus").textContent = "Cloud: connected ✅";
-     } catch (err) {
-       console.error(err);
-       tbody.innerHTML = "<tr><td></td><td colspan='4'>Could not load scores (offline?)</td></tr>";
-       document.getElementById("cloudStatus").textContent = "Cloud: error ❌";
-     }
-   }
-
-   async function clearAllScores() {
-     if (!confirm("Delete all cloud scores?")) return;
-     const pw = prompt("Enter admin password:");
-     if (pw !== ADMIN_PASSWORD) return alert("Wrong password");
-     const snap = await getDocs(query(scoresCol, limit(50)));
-     const ops = snap.docs.map(d=>deleteDoc(doc(db,"scores",d.id)));
-     await Promise.all(ops);
-     alert("All cloud scores cleared.");
-     loadScores();
-   }
-
-   async function clearSelected() {
-     const boxes = [...document.querySelectorAll(".selbox:checked")];
-     if (boxes.length===0) return alert("Select some first!");
-     const pw = prompt("Enter admin password:");
-     if (pw !== ADMIN_PASSWORD) return alert("Wrong password");
-     await Promise.all(boxes.map(b=>deleteDoc(doc(db,"scores",b.dataset.id))));
-     alert("Selected scores cleared.");
-     loadScores();
-   }
-
-   document.getElementById("btnClearScores").addEventListener("click", clearAllScores);
-   document.getElementById("btnClearSelected").addEventListener("click", clearSelected);
-   document.getElementById("btnBackFromScores").addEventListener("click", ()=>showScreen('screen-menu'));
-
-   /************ PYODIDE GAME INTEGRATION ************/
-   let pyodide, gameCode, started = false;
-
+   // ---------- Pyodide + Game ----------
+   let pyodide, gameCode, gameStarted = false;
    async function preloadEngine() {
-     document.getElementById("loading").innerText = "Loading engine…";
-     pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-     const resp = await fetch("main.py?v=" + Date.now());
-     gameCode = await resp.text();
-     document.getElementById("loading").innerText = "Ready!";
+     try {
+       document.getElementById("loading").innerText = "Loading engine…";
+       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+       const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
+       gameCode = await resp.text();
+       document.getElementById("loading").innerText = "Ready!";
+     } catch (e) {
+       console.error(e);
+       document.getElementById("loading").innerText = "Failed to load. See console.";
+     }
    }
    preloadEngine();
 
-   window.onGameOver = async function(score, reason) {
-     const name = prompt(`${reason==="timeup"?"Time Up!":"Game Over!"}\nScore: ${score}\nEnter your name:`) || "Player";
-     await saveScore(name, score);
-     loadScores();
-     showScreen('screen-scores'); 
-    };
+   // Called by Python when the game ends
+   window.onGameOver = function(score, reason) {
+     const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
+     setTimeout(async ()=>{
+       const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
+       // Save to Firestore (cloud)
+       try { await window.saveScoreCloud(name, score); } catch(e) {}
+       // Go to Score screen and render from cloud
+       showScreen('screen-scores');
+       window.renderScoresCloud();
+     }, 50);
+   };
 
-document.getElementById("btnPlay").addEventListener("click", async ()=>{
+   document.getElementById("btnPlay").addEventListener("click", async ()=>{
      tryStartMusic();
      showScreen('screen-game');
-     if (started) return;
-     started = true;
-     document.getElementById("gameLoading").innerText = "Starting game…";
+     if (gameStarted) return;
+     gameStarted = true;
+
+     const gl = document.getElementById("gameLoading");
+     gl.innerText = "Starting game…";
      await pyodide.runPythonAsync(gameCode);
-     document.getElementById("gameLoading").innerText = "Game Loaded!";
-     document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
+     gl.innerText = "Game Loaded!";
 
-     const callPy = c => pyodide.runPython(c);
-     document.getElementById("restartBtn").onclick = ()=>location.reload();
+     document.querySelectorAll("#controls button").forEach(b => b.disabled = false);
 
-     document.getElementById("btnLeft").addEventListener("click",()=>callPy(`on_key({"key":"ArrowLeft"})`));
-     document.getElementById("btnRight").addEventListener("click",()=>callPy(`on_key({"key":"ArrowRight"})`));
-     document.getElementById("btnRotate").addEventListener("click",()=>callPy(`on_key({"key":"ArrowUp"})`));
+     const callPy = (c) => pyodide.runPython(c);
+     document.getElementById("restartBtn").onclick = () => location.reload();
+     document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
+     document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
+     document.getElementById("btnRotate").addEventListener("click", () => callPy(`on_key({"key":"ArrowUp"})`));
 
      const btnDown = document.getElementById("btnDown");
-     const downStart = ()=>callPy(`start_soft_drop_hold()`);
-     const downEnd   = ()=>callPy(`stop_soft_drop_hold()`);
-     btnDown.addEventListener("mousedown",downStart);
-     btnDown.addEventListener("mouseup",downEnd);
+     const downStart = () => { callPy(`start_soft_drop_hold()`); };
+     const downEnd   = () => callPy(`stop_soft_drop_hold()`);
+     btnDown.addEventListener("mousedown", downStart);
+     btnDown.addEventListener("mouseup",   downEnd);
      btnDown.addEventListener("mouseleave",downEnd);
-     btnDown.addEventListener("touchstart",(e)=>{e.preventDefault();downStart();},{passive:false});
-     btnDown.addEventListener("touchend",(e)=>{e.preventDefault();downEnd();},{passive:false});
-     btnDown.addEventListener("touchcancel",(e)=>{e.preventDefault();downEnd();},{passive:false});
-     btnDown.addEventListener("click",()=>callPy(`soft_drop_tap()`));
+     btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
+     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
+     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+     btnDown.addEventListener("click", () => { callPy(`soft_drop_tap()`); });
    });
 
-   document.getElementById("btnScores").addEventListener("click", ()=>{ loadScores(); showScreen('screen-scores'); });
-   document.getElementById("btnBackFromGame").addEventListener("click", ()=>location.reload());
+   document.getElementById("btnScores").addEventListener("click", ()=>{
+     showScreen('screen-scores');
+     window.renderScoresCloud();
+   });
+   document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
+   document.getElementById("btnBackFromScores").addEventListener("click", ()=> showScreen('screen-menu'));
 
-   // On load, verify Firestore connectivity
-   window.addEventListener("load", async ()=>{
-     try {
-       const test = await getDocs(query(scoresCol, limit(1)));
-       document.getElementById("cloudStatus").textContent = "Cloud: connected ✅";
-     } catch(e) {
-       console.error(e);
-       document.getElementById("cloudStatus").textContent = "Cloud: offline ❌";
-     }
+   // “Clear” buttons are UI-only (no cloud delete in this demo)
+   const ADMIN_PASSWORD = "LSSIsTheBest";
+   document.getElementById("btnClearScores").addEventListener("click", ()=>{
+     const pw = prompt("Clear ALL scores in the table?\n(Admin demo only — does not delete from cloud)\nEnter admin password:");
+     if (pw !== ADMIN_PASSWORD) return alert("Wrong password.");
+     const tbody = document.querySelector("#scoresTable tbody");
+     tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Cleared (UI)</td></tr>`;
+   });
+   document.getElementById("btnClearSelected").addEventListener("click", ()=>{
+     const pw = prompt("Clear SELECTED rows?\n(Admin demo only — does not delete from cloud)\nEnter admin password:");
+     if (pw !== ADMIN_PASSWORD) return alert("Wrong password.");
+     document.querySelectorAll(".selbox:checked").forEach(cb => cb.closest("tr").remove());
    });
  </script>
 </body>
 </html>
+
 
