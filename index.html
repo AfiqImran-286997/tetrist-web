@@ -48,13 +48,13 @@
    .muted { opacity:.75; font-size:12px }
 
    /* ===== Background during gameplay ===== */
-   body.game-mode {
-     /* Your uploaded file has spaces, so use URL encoded path */
-     background-image: url('LSS%20tetrist%20background.png');
-     background-size: cover;
-     background-position: center;
-     background-attachment: fixed;
-   }
+body.game-mode {
+ background-image: url('LSS%20tetrist%20background.png');
+ background-size: contain;      /* ✅ show the whole image */
+ background-repeat: no-repeat;  /* ✅ prevent tiling */
+ background-position: center;   /* ✅ center it */
+ background-color: #000;        /* ✅ fill edges with black */
+}
    /* Soft darkening so the board pops */
    body.game-mode::before{
      content:"";
@@ -357,6 +357,7 @@ try{
  </script>
 </body>
 </html>
+
 
 
 
