@@ -140,10 +140,11 @@
    (function initMusicPref(){ if(localStorage.getItem("musicMuted")==="true") bgm.muted=true; updateMusicUI(); const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);}; window.addEventListener("pointerdown",kick,{once:true}); })();
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
-   import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
-     getFirestore, collection, addDoc, serverTimestamp,
-     deleteDoc, doc, onSnapshot
+     initializeFirestore, // force non-streaming transport
+     collection, addDoc, serverTimestamp,
+     deleteDoc, doc, getDocs, query, orderBy, limit
    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
    const firebaseConfig = {
@@ -156,7 +157,13 @@
      measurementId: "G-6J0XQTYB56"
    };
    const app = initializeApp(firebaseConfig);
-   const db  = getFirestore(app);
+
+   // IMPORTANT: avoid WebChannel; use long-polling/XHR instead.
+   const db = initializeFirestore(app, {
+     experimentalForceLongPolling: true,
+     experimentalAutoDetectLongPolling: true,
+     useFetchStreams: false
+   });
 
    /* ----------------- UI helpers ----------------- */
    const ADMIN_PASSWORD = "LSSIsTheBest";
@@ -171,43 +178,40 @@
    function showScreen(id){
      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
-     if (id === 'screen-scores') attachScoresListener(); // ensure listener is on whenever scores show
+     if (id === 'screen-scores') startScoresPolling();
+     else                        stopScoresPolling();
    }
 
-   /* ----------------- Scoreboard (live) ----------------- */
-   let unsubscribeScores = null;
+   /* ----------------- Scoreboard (polling instead of onSnapshot) ----------------- */
+   let pollTimer = null;
 
-   function attachScoresListener(){
-     if (unsubscribeScores) return; // already attached
-     const scoresCol = collection(db, "scores"); // listen to all docs
-
-     unsubscribeScores = onSnapshot(scoresCol, (snap)=>{
+   async function loadScoresOnce(){
+     try{
+       const q = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
+       const snap = await getDocs(q);
        const rows = [];
        snap.forEach(d => {
-         const data = d.data() || {};
-         const scoreNum = Number(data.score);
-         if (!Number.isFinite(scoreNum)) return; // skip malformed rows
-         rows.push({
-           id: d.id,
-           name: data.name || "Player",
-           score: scoreNum,
-           createdAt: data.createdAt
-         });
+         const v = d.data() || {};
+         const scoreNum = Number(v.score);
+         if (!Number.isFinite(scoreNum)) return;
+         rows.push({ id: d.id, name: v.name || "Player", score: scoreNum, createdAt: v.createdAt });
        });
-
-       // sort by score desc; show top 10
-       rows.sort((a,b)=> b.score - a.score);
-       renderRows(rows.slice(0,10));
+       renderRows(rows);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#24d15d">online</span>';
-     }, (err)=>{
-       console.error("scores listener:", err);
+     }catch(e){
+       console.error("[scores] load failed:", e);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">offline / error</span>';
        tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>`;
-     });
+     }
    }
 
-   function detachScoresListener(){
-     if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; }
+   function startScoresPolling(){
+     if (pollTimer) return;
+     loadScoresOnce();                     // immediate
+     pollTimer = setInterval(loadScoresOnce, 5000); // then every 5s
+   }
+   function stopScoresPolling(){
+     if (pollTimer){ clearInterval(pollTimer); pollTimer = null; }
    }
 
    function renderRows(rows){
@@ -231,19 +235,20 @@
    async function addScoreToCloud(name, score){
      try{
        const scoreNum = Number(score) || 0;
+       console.log("[addScore] saving", {name, score: scoreNum});
        await addDoc(collection(db,"scores"), {
          name: name || "Player",
          score: scoreNum,
          createdAt: serverTimestamp()
        });
+       console.log("[addScore] ✅ saved");
      }catch(e){
-       console.error("addScore:", e);
+       console.error("[addScore] ❌ failed:", e);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">write failed</span>';
-       alert("Could not save your score to the cloud. Check your internet or Firestore rules.");
+       alert("Could not save your score (see console).");
      }
-   }
-
-   function checkAdmin(label){
+}
+function checkAdmin(label){
      const pw = prompt(`${label}\nEnter admin password:`); return pw && pw === ADMIN_PASSWORD;
    }
 
@@ -255,6 +260,7 @@
        if (!checks.length){ alert("Please tick at least one row."); return; }
        await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
        alert(`Deleted ${checks.length} item(s) from cloud.`);
+       loadScoresOnce();
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
@@ -267,6 +273,7 @@
        if (!ids.length){ alert("No scores to delete."); return; }
        await Promise.all(ids.map(id => deleteDoc(doc(db,"scores", id))));
        alert("Cleared the table’s scores from cloud.");
+       loadScoresOnce();
      }catch(e){ console.error(e); alert("Failed to clear scores (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
@@ -280,13 +287,13 @@
    /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
 
-   // When the game ends, save and open scoreboard with listener attached
+   // When the game ends, save and open scoreboard (polling will refresh)
    window.onGameOver = async (score, reason) => {
      const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
        const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
+       console.log("[onGameOver] name & score:", name, score);
        await addScoreToCloud(name, score);
-       attachScoresListener();                 // <— important: ensure live table is on
        showScreen('screen-scores');
      }, 50);
    };
@@ -341,12 +348,11 @@
    });
 
    document.getElementById("btnScores").addEventListener("click", ()=>{
-     showScreen('screen-scores'); // showScreen will auto-attach listener
+     showScreen('screen-scores'); // starts polling
    });
 
    document.getElementById("btnBackFromScores").addEventListener("click", ()=>{
-     detachScoresListener(); // optional: stop listening when leaving
-     showScreen('screen-menu');
+     showScreen('screen-menu');   // stops polling
    });
 
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
