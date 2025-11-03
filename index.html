@@ -139,17 +139,13 @@
    bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bgm.mp3"));
    (function initMusicPref(){ if(localStorage.getItem("musicMuted")==="true") bgm.muted=true; updateMusicUI(); const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);}; window.addEventListener("pointerdown",kick,{once:true}); })();
 
-   /* ----------------- Screen switching ----------------- */
-   function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
-     query, orderBy, limit, deleteDoc, doc, onSnapshot
+     deleteDoc, doc, onSnapshot
    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-   // ✅ Your config (public client keys)
    const firebaseConfig = {
      apiKey: "AIzaSyCwTCR3h3Yy-KnNFGVNZmFerkapkKGbrqus",
      authDomain: "tetr1st-web.firebaseapp.com",
@@ -162,6 +158,7 @@
    const app = initializeApp(firebaseConfig);
    const db  = getFirestore(app);
 
+   /* ----------------- UI helpers ----------------- */
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
@@ -170,16 +167,37 @@
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
                        .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
-   // ---- LIVE SCOREBOARD (onSnapshot) ----
+   /* ----------------- Screen switching ----------------- */
+   function showScreen(id){
+     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+     document.getElementById(id).classList.add('active');
+     if (id === 'screen-scores') attachScoresListener(); // ensure listener is on whenever scores show
+   }
+
+   /* ----------------- Scoreboard (live) ----------------- */
    let unsubscribeScores = null;
-   const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
 
    function attachScoresListener(){
      if (unsubscribeScores) return; // already attached
-     unsubscribeScores = onSnapshot(topQuery, (snap)=>{
+     const scoresCol = collection(db, "scores"); // listen to all docs
+
+     unsubscribeScores = onSnapshot(scoresCol, (snap)=>{
        const rows = [];
-       snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
-       renderRows(rows);
+       snap.forEach(d => {
+         const data = d.data() || {};
+         const scoreNum = Number(data.score);
+         if (!Number.isFinite(scoreNum)) return; // skip malformed rows
+         rows.push({
+           id: d.id,
+           name: data.name || "Player",
+           score: scoreNum,
+           createdAt: data.createdAt
+         });
+       });
+
+       // sort by score desc; show top 10
+       rows.sort((a,b)=> b.score - a.score);
+       renderRows(rows.slice(0,10));
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#24d15d">online</span>';
      }, (err)=>{
        console.error("scores listener:", err);
@@ -193,7 +211,7 @@
    }
 
    function renderRows(rows){
-tbody.innerHTML = "";
+     tbody.innerHTML = "";
      if (!rows.length){
        tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
        return;
@@ -212,8 +230,17 @@ tbody.innerHTML = "";
 
    async function addScoreToCloud(name, score){
      try{
-       await addDoc(collection(db,"scores"), { name: name||"Player", score: Number(score)||0, createdAt: serverTimestamp() });
-     }catch(e){ console.error("addScore:", e); }
+       const scoreNum = Number(score) || 0;
+       await addDoc(collection(db,"scores"), {
+         name: name || "Player",
+         score: scoreNum,
+         createdAt: serverTimestamp()
+       });
+     }catch(e){
+       console.error("addScore:", e);
+       cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">write failed</span>';
+       alert("Could not save your score to the cloud. Check your internet or Firestore rules.");
+     }
    }
 
    function checkAdmin(label){
@@ -227,7 +254,6 @@ tbody.innerHTML = "";
        const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
        if (!checks.length){ alert("Please tick at least one row."); return; }
        await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
-       // No manual re-render: onSnapshot will push the new list
        alert(`Deleted ${checks.length} item(s) from cloud.`);
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
@@ -237,7 +263,6 @@ tbody.innerHTML = "";
      if (!checkAdmin("Clear ALL scores that are currently shown?")) return;
      const btns = disableCloudButtons(true);
      try{
-       // Delete whatever is currently in the rendered top-10 (follows the listener)
        const ids = Array.from(document.querySelectorAll(".selbox.cloud")).map(i=>i.getAttribute("data-docid"));
        if (!ids.length){ alert("No scores to delete."); return; }
        await Promise.all(ids.map(id => deleteDoc(doc(db,"scores", id))));
@@ -255,12 +280,14 @@ tbody.innerHTML = "";
    /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
 
+   // When the game ends, save and open scoreboard with listener attached
    window.onGameOver = async (score, reason) => {
      const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
        const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
-       await addScoreToCloud(name, score);     // ⛅ save to Firestore
-       showScreen('screen-scores');            // listener will show the new list
+       await addScoreToCloud(name, score);
+       attachScoresListener();                 // <— important: ensure live table is on
+       showScreen('screen-scores');
      }, 50);
    };
 
@@ -314,12 +341,11 @@ tbody.innerHTML = "";
    });
 
    document.getElementById("btnScores").addEventListener("click", ()=>{
-     attachScoresListener();          // start live updates when entering scoreboard
-     showScreen('screen-scores');
+     showScreen('screen-scores'); // showScreen will auto-attach listener
    });
 
    document.getElementById("btnBackFromScores").addEventListener("click", ()=>{
-     detachScoresListener();          // optional: stop listening when leaving
+     detachScoresListener(); // optional: stop listening when leaving
      showScreen('screen-menu');
    });
 
@@ -327,6 +353,8 @@ tbody.innerHTML = "";
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
 
    document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
+
+   // start music on first key interaction (desktop)
    window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
