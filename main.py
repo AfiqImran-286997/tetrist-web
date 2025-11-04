@@ -56,7 +56,7 @@ fall_accum_ms = 0
 
 # Round timer
 start_time = js.Date.now()
-game_duration = 90  # seconds
+game_duration = 120  # seconds
 
 # ===== Transparent Playfield Backdrop =====
 def _is_mobile():
@@ -65,8 +65,8 @@ def _is_mobile():
    except Exception:
        return False
 
-BG_ALPHA_DESKTOP = 0.45   # 45% black
-BG_ALPHA_MOBILE  = 0.35   # 35% black
+BG_ALPHA_DESKTOP = 0.70   # 45% black
+BG_ALPHA_MOBILE  = 0.70   # 35% black
 
 GRID_LINE_ALPHA  = 0.28   # grid line opacity for empty cells
 GRID_LINE_ALPHA_STRONG = 0.85  # outline for filled cells
@@ -349,6 +349,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
