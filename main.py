@@ -15,21 +15,21 @@ COLS = 10
 COLORS = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFA500", "#800080", "#00FFFF"]
 
 SHAPES = [
-   [[1, 1, 1, 1]],                # I
-   [[1, 1], [1, 1]],              # O
-   [[0, 1, 0], [1, 1, 1]],        # T
-   [[1, 0, 0], [1, 1, 1]],        # L
-   [[0, 0, 1], [1, 1, 1]],        # J
-   [[1, 1, 0], [0, 1, 1]],        # S
-   [[0, 1, 1], [1, 1, 0]]         # Z
+   [[1, 1, 1, 1]],                 # I
+   [[1, 1], [1, 1]],               # O
+   [[0, 1, 0], [1, 1, 1]],         # T
+   [[1, 0, 0], [1, 1, 1]],         # L
+   [[0, 0, 1], [1, 1, 1]],         # J
+   [[1, 1, 0], [0, 1, 1]],         # S
+   [[0, 1, 1], [1, 1, 0]]          # Z
 ]
 
 # Steady game tick
-TICK_MS = 50  # ~20 FPS heartbeat
+TICK_MS = 50                       # ~20 FPS heartbeat
 
 # Soft drop timing
-MIN_DROP_MS = 50      # min fall interval while dropping
-BURST_MS = 180        # tap burst duration for Down
+MIN_DROP_MS = 50                   # min fall interval while dropping
+BURST_MS = 180                     # tap burst duration for Down
 
 # ===== State =====
 grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
@@ -43,8 +43,12 @@ shape_pos = [COLS // 2 - len(current_shape[0]) // 2, 0]
 score = 0
 game_over = False
 
-# Speed scaling
-speed_multiplier = 1.0
+# ----- SPEED / TIMER SETTINGS YOU ASKED FOR -----
+BASE_SPEED = 5.0                   # start immediately at x5.0
+speed_multiplier = BASE_SPEED
+
+start_time = js.Date.now()
+game_duration = 30                 # seconds (round lasts 30s)
 
 # Vertical soft drop (Down only)
 soft_drop_hold = False
@@ -54,10 +58,6 @@ burst_timer_down = None
 # Accumulators
 fall_accum_ms = 0
 
-# Round timer
-start_time = js.Date.now()
-game_duration = 120  # seconds
-
 # ===== Transparent Playfield Backdrop =====
 def _is_mobile():
    try:
@@ -65,28 +65,15 @@ def _is_mobile():
    except Exception:
        return False
 
-# Slightly see-through so the logo is visible
-BG_ALPHA_DESKTOP = 0.38
-BG_ALPHA_MOBILE  = 0.34
+BG_ALPHA_DESKTOP = 0.70
+BG_ALPHA_MOBILE  = 0.70
 
-GRID_LINE_ALPHA = 0.22
-GRID_LINE_ALPHA_STRONG = 0.80
-
-# Ghost styling (you can tweak these)
-GHOST_FILL_ALPHA = 0.28         # transparency of ghost fill
-GHOST_OUTLINE_ALPHA = 0.95      # brightness of ghost outline
-
-def _hex_to_rgba(hex_color, alpha):
-   h = hex_color.lstrip("#")
-   if len(h) == 3:
-       r, g, b = (int(h[i] + h[i], 16) for i in range(3))
-   else:
-       r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
-   return f"rgba({r},{g},{b},{alpha})"
+GRID_LINE_ALPHA         = 0.28
+GRID_LINE_ALPHA_STRONG  = 0.85
 
 def clear_and_paint_background():
-   """Clear the canvas and paint a semi-transparent black panel so the
-   logo behind the game is faintly visible."""
+   """Clear the canvas and paint a single semi-transparent black panel so the
+   body background (logo) is visible through the playfield."""
    ctx.clearRect(0, 0, CW, CH)
    alpha = BG_ALPHA_MOBILE if _is_mobile() else BG_ALPHA_DESKTOP
    ctx.fillStyle = f"rgba(0,0,0,{alpha})"
@@ -117,24 +104,15 @@ def draw_shape(shape, pos, color):
                fill_cell(pos[0] + x, pos[1] + y, color)
 
 def draw_ghost(shape, pos):
-   """Draw a visible landing preview: colored translucent fill + bright outline."""
    ghost_pos = pos[:]
    while not check_collision(shape, [ghost_pos[0], ghost_pos[1] + 1]):
        ghost_pos[1] += 1
-
-   fill_rgba = _hex_to_rgba(current_color, GHOST_FILL_ALPHA)
-
+   ctx.globalAlpha = 0.3
    for y, row in enumerate(shape):
        for x, cell in enumerate(row):
            if cell:
-               gx = ghost_pos[0] + x
-               gy = ghost_pos[1] + y
-               # fill
-               ctx.fillStyle = fill_rgba
-               ctx.fillRect(gx * BLOCK_SIZE, gy * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-               # outline
-               ctx.strokeStyle = f"rgba(255,255,255,{GHOST_OUTLINE_ALPHA})"
-               ctx.strokeRect(gx * BLOCK_SIZE, gy * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+               stroke_cell(ghost_pos[0] + x, ghost_pos[1] + y, 0.6)
+   ctx.globalAlpha = 1.0
 
 def draw_next_shape():
    ctx.fillStyle = "rgba(0,0,0,0.35)"
@@ -210,10 +188,13 @@ def current_fall_interval_ms():
    return base
 
 def adjust_speed():
+   """
+   Keep at least BASE_SPEED (x5.0) and only increase if score-based speed is higher.
+   """
    global speed_multiplier
-   new_mult = 1.0 + (score // 30) * 0.25
-   if new_mult != speed_multiplier:
-       speed_multiplier = new_mult
+   target = max(BASE_SPEED, 1.0 + (score // 30) * 0.25)
+   if target != speed_multiplier:
+       speed_multiplier = target
 
 # Helpers for moving safely
 def move_left():
@@ -324,7 +305,6 @@ def stop_soft_drop_hold():
 def _end_down_burst():
    global soft_drop_burst
    soft_drop_burst = False
-
 _end_down_burst_proxy = create_proxy(_end_down_burst)
 
 def soft_drop_tap():
@@ -352,12 +332,12 @@ def handle_keyup(event):
 
 # ===== Wire & Start =====
 game_loop_proxy = create_proxy(game_loop)
-keydown_proxy = create_proxy(handle_keydown)
-keyup_proxy = create_proxy(handle_keyup)
+keydown_proxy  = create_proxy(handle_keydown)
+keyup_proxy    = create_proxy(handle_keyup)
 
 js.setInterval(game_loop_proxy, TICK_MS)
 js.document.addEventListener("keydown", keydown_proxy)
-js.document.addEventListener("keyup",  keyup_proxy)
+js.document.addEventListener("keyup",   keyup_proxy)
 
 # First frame
 clear_and_paint_background()
