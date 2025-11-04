@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
- <!-- lock zoom and use iOS safe areas -->
  <meta name="viewport"
        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
  <title>Tetris - Web Version</title>
@@ -14,9 +13,9 @@
    /* ---------- GLOBAL touch/selection hardening ---------- */
    html, body {
      font-size:16px;
-     touch-action:manipulation;                 /* prevent double-tap zoom heuristics */
-     -webkit-user-select:none; user-select:none;/* no text selection */
-     -webkit-touch-callout:none;                /* no copy/select bubble */
+     touch-action:manipulation;
+     -webkit-user-select:none; user-select:none;
+     -webkit-touch-callout:none;
      margin:0;
      background:#000;
      color:#fff;
@@ -24,7 +23,6 @@
    }
    * { -webkit-tap-highlight-color: transparent; }
 
-   /* common elements also non-selectable */
    .wrap, #gameArea, canvas, h1, p, table, th, td, button {
      -webkit-user-select:none; user-select:none;
      -webkit-touch-callout:none;
@@ -37,14 +35,11 @@
 
    :root{
      --gap: 12px;
-     /* logo size behind game (tweak if you want) */
      --logoW-desktop: 420px;
      --logoW-mobile: 70vmin;
-     --page-padding: max(12px, env(safe-area-inset-left));
    }
 
    body{ text-align:center; font-family:Arial, sans-serif; }
-
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
 
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
@@ -69,38 +64,31 @@
      backdrop-filter:none !important;
      -webkit-backdrop-filter:none !important;
 
-     display:inline-block;               /* needed for clean transform scaling */
-     transform-origin: top center;       /* we scale from the top */
+     display:inline-block;
+     transform-origin: top center;
      will-change: transform;
      margin-top:10px;
    }
 
-   /* Centered logo BEHIND the game only */
+   /* centered logo behind the game only */
    #gameArea::before{
      content:"";
-     position:absolute;
-     inset:0;
-     z-index:0;
-     background-repeat:no-repeat;
-     background-position:center center;
+     position:absolute; inset:0; z-index:0;
+     background-repeat:no-repeat; background-position:center center;
      background-image:url("LSS%20tetris%20background.png?v=3");
      background-size: var(--logoW-desktop) auto;
-     opacity:0.95;
-     pointer-events:none;
+     opacity:0.95; pointer-events:none;
    }
    @media (max-width:600px){
      #gameArea::before{ background-size: var(--logoW-mobile) auto; }
    }
-
-   /* Lift canvas & buttons above the logo */
    #gameArea > * { position:relative; z-index:1; }
 
-   /* Canvas stays logical 300x600; CSS size can be anything, but we scale container instead */
-   canvas {
+   canvas{
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
      background:transparent;
-     width:300px; height:600px;   /* base design size (scale container later) */
+     width:300px; height:600px; /* logical base; container is scaled */
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
@@ -109,25 +97,25 @@
    .btn.ghost    { background:#333; color:#fff; }
    .btn.small    { font-size:14px; padding:8px 12px; }
 
-   #loading { color:#ff0; font-size:18px; min-height:1.4em; }
-   #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+   #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
+   #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   .screen { display:none; }
-   .screen.active { display:block; }
+   .screen{ display:none; }
+   .screen.active{ display:block; }
 
-   #restartBtn { display:none; margin-top:12px; }
+   #restartBtn{ display:none; margin-top:12px; }
 
-   #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
-   #controls button { font-size:24px; padding:10px 14px; margin:2px; }
-   #controls button.small { font-size:16px; }
-   #controls button:disabled { opacity:.5; cursor:not-allowed; }
+   #controls{ margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
+   #controls button{ font-size:24px; padding:10px 14px; margin:2px; }
+   #controls button.small{ font-size:16px; }
+   #controls button:disabled{ opacity:.5; cursor:not-allowed; }
 
-   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
-   th, td { border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
-   th { background:rgba(0,0,0,.35); }
-   tr:nth-child(even) td { background:rgba(0,0,0,.20) }
-   th.sel, td.sel { width:52px; text-align:center }
-   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
+   table{ border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
+   th, td{ border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
+   th{ background:rgba(0,0,0,.35); }
+   tr:nth-child(even) td{ background:rgba(0,0,0,.20) }
+   th.sel, td.sel{ width:52px; text-align:center }
+   .muted{ opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
  </style>
 </head>
 <body>
@@ -204,7 +192,7 @@
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* Kill double-tap zoom (we already set user-scalable=no, this helps iOS further) */
+   /* Kill double-tap zoom (extra help for iOS) */
    let __lastTouchEnd = 0;
    document.addEventListener('touchend', function(e){
      const now = Date.now();
@@ -215,23 +203,14 @@
    /* ---------------- Fit the whole game panel to the viewport ---------------- */
    const gameArea = document.getElementById('gameArea');
    function fitGameToViewport(){
-     // Reset transform to get natural size
      gameArea.style.transform = 'none';
-
-     // natural/pref layout size of the game panel (canvas + text + buttons)
      const panelW = gameArea.scrollWidth;
      const panelH = gameArea.scrollHeight;
-
-     // available viewport (leave a small breathing space)
      const vw = Math.max(320, window.innerWidth)  - 8;
      const vh = Math.max(320, window.innerHeight) - 8;
-
-     // scale so the panel fits both width and height
-     const scale = Math.min(1, vw / panelW, vh / panelH);
-
+     const scale = Math.min(1, vw/panelW, vh/panelH);
      gameArea.style.transform = `scale(${scale})`;
    }
-   // refit on orientation/resize and when Game screen is opened
    window.addEventListener('resize', fitGameToViewport);
    window.addEventListener('orientationchange', fitGameToViewport);
 
@@ -290,12 +269,7 @@
    function showScreen(id){
      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
-
-     // when entering the game screen, fit it
-     if (id === 'screen-game'){
-       // wait a tick so layout settles, then scale
-       setTimeout(fitGameToViewport, 0);
-     }
+     if (id === 'screen-game'){ setTimeout(fitGameToViewport, 0); }
    }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
@@ -367,7 +341,6 @@
    }
 
    function checkAdmin(label){ const pw = prompt(label+"\nEnter admin password:"); return pw && pw === ADMIN_PASSWORD; }
-
    function disableCloudButtons(disable, cache){
      const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
      if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
@@ -425,6 +398,39 @@
    }
    preloadEngine();
 
+   /* ----------------------- Smooth / repeating controls ----------------------- */
+   function makeRepeater(element, fireFn, initialDelay=150, repeatEvery=55){
+     let startTimer=null, repeatTimer=null, active=false;
+
+     const stop = ()=>{
+       active=false;
+       if (startTimer){ clearTimeout(startTimer); startTimer=null; }
+       if (repeatTimer){ clearInterval(repeatTimer); repeatTimer=null; }
+     };
+
+     const start = (e)=>{
+       e.preventDefault();
+       if (active) return;
+       active=true;
+
+       // First immediate action for snappy feel
+       fireFn();
+
+       // After a short delay, start repeating quickly
+       startTimer = setTimeout(()=>{
+         repeatTimer = setInterval(fireFn, repeatEvery);
+       }, initialDelay);
+     };
+
+     element.addEventListener('pointerdown', start, {passive:false});
+     element.addEventListener('pointerup',   stop);
+     element.addEventListener('pointerleave',stop);
+     element.addEventListener('pointercancel',stop);
+
+     // extra: quick taps still work (pointerdown already fires one)
+     element.addEventListener('click', e=>e.preventDefault());
+   }
+
    // UI events
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
      tryStartMusic();
@@ -440,23 +446,32 @@
      document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
 
      const callPy = (c)=> pyodide.runPython(c);
+
      document.getElementById("restartBtn").onclick = () => location.reload();
-     document.getElementById("btnLeft").addEventListener("click",  () => callPy('on_key({"key":"ArrowLeft"})'));
-     document.getElementById("btnRight").addEventListener("click", () => callPy('on_key({"key":"ArrowRight"})'));
-     document.getElementById("btnRotate").addEventListener("click",() => callPy('on_key({"key":"ArrowUp"})'));
 
+     // Smooth repeating: hold to move/rotate fast, tap for single steps
+     makeRepeater(document.getElementById("btnLeft"),
+       ()=>callPy('on_key({"key":"ArrowLeft"})'), 130, 50);
+
+     makeRepeater(document.getElementById("btnRight"),
+       ()=>callPy('on_key({"key":"ArrowRight"})'), 130, 50);
+
+     // Rotation repeats, but a tad slower to be controllable
+     makeRepeater(document.getElementById("btnRotate"),
+       ()=>callPy('on_key({"key":"ArrowUp"})'), 160, 90);
+
+     // Soft drop: real hold behavior via dedicated functions
      const btnDown = document.getElementById("btnDown");
-     const downStart = () => { callPy('start_soft_drop_hold()'); };
-     const downEnd   = () => { callPy('stop_soft_drop_hold()'); };
-     btnDown.addEventListener("mousedown", downStart);
-     btnDown.addEventListener("mouseup",   downEnd);
-     btnDown.addEventListener("mouseleave",downEnd);
-     btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
-     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
-     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
-     btnDown.addEventListener("click", () => { callPy('soft_drop_tap()'); });
+     const downStart = (e)=>{ e.preventDefault(); callPy('start_soft_drop_hold()'); };
+     const downEnd   = ()=>{ callPy('stop_soft_drop_hold()'); };
+     btnDown.addEventListener("pointerdown", downStart, {passive:false});
+     btnDown.addEventListener("pointerup",   downEnd);
+     btnDown.addEventListener("pointerleave",downEnd);
+     btnDown.addEventListener("pointercancel",downEnd);
+     // quick tap also triggers a brief burst
+     btnDown.addEventListener("click", (e)=>{ e.preventDefault(); callPy('soft_drop_tap()'); });
 
-     // make sure first show also fits
+     // fit to screen
      fitGameToViewport();
    });
 
@@ -477,6 +492,7 @@
  </script>
 </body>
 </html>
+
 
 
 
