@@ -65,15 +65,28 @@ def _is_mobile():
    except Exception:
        return False
 
-BG_ALPHA_DESKTOP = 0.45
-BG_ALPHA_MOBILE  = 0.40
+# Slightly see-through so the logo is visible
+BG_ALPHA_DESKTOP = 0.38
+BG_ALPHA_MOBILE  = 0.34
 
 GRID_LINE_ALPHA = 0.22
 GRID_LINE_ALPHA_STRONG = 0.80
 
+# Ghost styling (you can tweak these)
+GHOST_FILL_ALPHA = 0.28         # transparency of ghost fill
+GHOST_OUTLINE_ALPHA = 0.95      # brightness of ghost outline
+
+def _hex_to_rgba(hex_color, alpha):
+   h = hex_color.lstrip("#")
+   if len(h) == 3:
+       r, g, b = (int(h[i] + h[i], 16) for i in range(3))
+   else:
+       r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+   return f"rgba({r},{g},{b},{alpha})"
+
 def clear_and_paint_background():
    """Clear the canvas and paint a semi-transparent black panel so the
-   body background (logo) is visible through the playfield."""
+   logo behind the game is faintly visible."""
    ctx.clearRect(0, 0, CW, CH)
    alpha = BG_ALPHA_MOBILE if _is_mobile() else BG_ALPHA_DESKTOP
    ctx.fillStyle = f"rgba(0,0,0,{alpha})"
@@ -90,7 +103,6 @@ def fill_cell(x, y, color):
    stroke_cell(x, y, GRID_LINE_ALPHA_STRONG)
 
 def draw_grid():
-   """Draw only lines for empty cells, solid fill for occupied cells."""
    for y in range(ROWS):
        for x in range(COLS):
            if grid[y][x] == 0:
@@ -105,15 +117,24 @@ def draw_shape(shape, pos, color):
                fill_cell(pos[0] + x, pos[1] + y, color)
 
 def draw_ghost(shape, pos):
+   """Draw a visible landing preview: colored translucent fill + bright outline."""
    ghost_pos = pos[:]
    while not check_collision(shape, [ghost_pos[0], ghost_pos[1] + 1]):
        ghost_pos[1] += 1
-   ctx.globalAlpha = 0.3
+
+   fill_rgba = _hex_to_rgba(current_color, GHOST_FILL_ALPHA)
+
    for y, row in enumerate(shape):
        for x, cell in enumerate(row):
            if cell:
-               stroke_cell(ghost_pos[0] + x, ghost_pos[1] + y, 0.6)
-   ctx.globalAlpha = 1.0
+               gx = ghost_pos[0] + x
+               gy = ghost_pos[1] + y
+               # fill
+               ctx.fillStyle = fill_rgba
+               ctx.fillRect(gx * BLOCK_SIZE, gy * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+               # outline
+               ctx.strokeStyle = f"rgba(255,255,255,{GHOST_OUTLINE_ALPHA})"
+               ctx.strokeRect(gx * BLOCK_SIZE, gy * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
 
 def draw_next_shape():
    ctx.fillStyle = "rgba(0,0,0,0.35)"
@@ -181,6 +202,7 @@ def new_piece():
    shape_pos = [COLS // 2 - len(current_shape[0]) // 2, 0]
    if check_collision(current_shape, shape_pos):
        end_game("gameover")
+
 def current_fall_interval_ms():
    base = int(1000 / max(0.01, speed_multiplier))
    if soft_drop_hold or soft_drop_burst:
@@ -264,7 +286,6 @@ def _norm_key(event):
        if isinstance(event, dict):
            return event.get("key")
        return str(event)
-
 def on_key(event):
    """Public: called from JS for on-screen buttons too."""
    global fall_accum_ms
@@ -344,6 +365,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
