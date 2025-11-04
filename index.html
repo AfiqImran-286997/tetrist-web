@@ -16,17 +16,18 @@
      -webkit-user-select:none; user-select:none;
    }
 
-   /* === BACKGROUND IMAGE === */
+   /* === BACKGROUND IMAGE (spaces are URL-encoded) === */
    body{
      margin:0;
      font-family:Arial, sans-serif;
      color:#fff;
      text-align:center;
+
      background-color:#000;
-     background-image:url("LSS%20tetris%20background.png?v=3");
+     background-image:url("LSS%20tetris%20background.png?v=3"); /* your uploaded filename */
      background-repeat:no-repeat;
      background-position:center center;
-     background-size:contain;
+     background-size:contain;      /* keep the full logo visible */
      background-attachment:fixed;
      min-height:100vh;
    }
@@ -35,25 +36,15 @@
 
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
-   /* Semi-transparent card panels */
+   /* Semi-transparent cards */
    .card{
      display:inline-block;
      padding:18px;
      border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
-     background:rgba(0,0,0,.60);
+     background:rgba(0,0,0,.60);      /* translucency for logo to show through */
      backdrop-filter:saturate(120%) blur(2px);
      -webkit-backdrop-filter:saturate(120%) blur(2px);
-   }
-
-   /* Transparent Game Panel */
-   #gameArea{
-     background: transparent !important;
-     border-color: transparent !important;
-     backdrop-filter: none !important;
-     -webkit-backdrop-filter: none !important;
-     box-shadow: none !important;
-     padding-top: 8px;
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
@@ -71,14 +62,15 @@
 
    #gameArea { margin-top:10px }
 
-   /* Transparent Canvas (Game Grid) */
+   /* ===== TRANSPARENT PLAYFIELD ===== */
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
-     background: rgba(0,0,0,0.65);
-     backdrop-filter: blur(1px);
+     background: rgba(0,0,0,0.65);   /* <— key change: see-through black */
+     backdrop-filter: blur(1px);      /* softens the logo under grid for readability */
    }
 
+   /* On small screens (phones), make it a touch more transparent */
    @media (max-width: 480px) {
      canvas { background: rgba(0,0,0,0.55); }
    }
@@ -108,7 +100,7 @@
      <div id="audioStatus"></div>
    </div>
 
-   <!-- MENU -->
+   <!-- ===== MENU ===== -->
    <section id="screen-menu" class="screen active">
      <div class="card">
        <p id="loading">Loading engine…</p>
@@ -119,7 +111,7 @@
      </div>
    </section>
 
-   <!-- GAME -->
+   <!-- ===== GAME ===== -->
    <section id="screen-game" class="screen">
      <div id="gameArea" class="card">
        <p id="gameLoading" style="color:#ff0; min-height:1.2em">Loading game, please wait…</p>
@@ -139,12 +131,14 @@
      </div>
    </section>
 
-   <!-- SCOREBOARD -->
+   <!-- ===== SCOREBOARD ===== -->
    <section id="screen-scores" class="screen">
      <div class="card" style="min-width:340px">
        <h2>🏆 Score Board</h2>
+
        <div class="muted" id="cloudStatus">Cloud: <em>checking…</em></div>
        <p class="muted">Top 10 highest scores (cloud)</p>
+
        <table id="scoresTable">
          <thead>
            <tr>
@@ -153,6 +147,7 @@
          </thead>
          <tbody></tbody>
        </table>
+
        <div>
          <button id="btnCloudClearSelected" class="btn small ghost">Clear Selected</button>
          <button id="btnCloudClearAll" class="btn small ghost">Clear Scores</button>
@@ -164,7 +159,8 @@
      </div>
    </section>
  </div>
-<!-- Background music -->
+
+ <!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
  <!-- ========================= APP SCRIPT ========================= -->
