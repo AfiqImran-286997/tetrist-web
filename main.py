@@ -5,6 +5,7 @@ from pyodide.ffi import create_proxy
 # ===== Canvas / Context =====
 canvas = js.document.getElementById("gameCanvas")
 ctx = canvas.getContext("2d")
+CW, CH = canvas.width, canvas.height
 
 # ===== Constants =====
 BLOCK_SIZE = 30
@@ -57,34 +58,69 @@ fall_accum_ms = 0
 start_time = js.Date.now()
 game_duration = 90  # seconds
 
+# ===== Transparent Playfield Backdrop =====
+def _is_mobile():
+   try:
+       return js.document.documentElement.clientWidth <= 480
+   except Exception:
+       return False
+
+BG_ALPHA_DESKTOP = 0.45   # 45% black
+BG_ALPHA_MOBILE  = 0.35   # 35% black
+
+GRID_LINE_ALPHA  = 0.28   # grid line opacity for empty cells
+GRID_LINE_ALPHA_STRONG = 0.85  # outline for filled cells
+
+def clear_and_paint_background():
+   """Clear the canvas and paint a single semi-transparent black panel so the
+   body background (LSS logo) is visible through the playfield."""
+   ctx.clearRect(0, 0, CW, CH)
+   alpha = BG_ALPHA_MOBILE if _is_mobile() else BG_ALPHA_DESKTOP
+   ctx.fillStyle = f"rgba(0,0,0,{alpha})"
+   ctx.fillRect(0, 0, CW, CH)
+
 # ===== Drawing =====
-def draw_block(x, y, color):
-   ctx.fillStyle = color
-   ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
-   ctx.strokeStyle = "#FFFFFF"
+def stroke_cell(x, y, alpha):
+   ctx.strokeStyle = f"rgba(255,255,255,{alpha})"
    ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
 
+def fill_cell(x, y, color):
+   ctx.fillStyle = color
+   ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
+   stroke_cell(x, y, GRID_LINE_ALPHA_STRONG)
+
 def draw_grid():
+   """Draw only lines for empty cells, solid fill for occupied cells."""
    for y in range(ROWS):
        for x in range(COLS):
-           color = "#000000" if grid[y][x] == 0 else grid[y][x]
-           draw_block(x, y, color)
+           if grid[y][x] == 0:
+               # Empty: just a faint grid line (no opaque fill)
+               stroke_cell(x, y, GRID_LINE_ALPHA)
+           else:
+               fill_cell(x, y, grid[y][x])
 
 def draw_shape(shape, pos, color):
    for y, row in enumerate(shape):
        for x, cell in enumerate(row):
            if cell:
-               draw_block(pos[0] + x, pos[1] + y, color)
+               fill_cell(pos[0] + x, pos[1] + y, color)
 
 def draw_ghost(shape, pos):
    ghost_pos = pos[:]
    while not check_collision(shape, [ghost_pos[0], ghost_pos[1] + 1]):
        ghost_pos[1] += 1
    ctx.globalAlpha = 0.3
-   draw_shape(shape, ghost_pos, "#CCCCCC")
+   for y, row in enumerate(shape):
+       for x, cell in enumerate(row):
+           if cell:
+               # ghost outline only so it doesn't block the background
+               stroke_cell(ghost_pos[0] + x, ghost_pos[1] + y, 0.6)
    ctx.globalAlpha = 1.0
 
 def draw_next_shape():
+   # small translucent label background for readability
+   ctx.fillStyle = "rgba(0,0,0,0.35)"
+   ctx.fillRect(210, 4, 84, 56)
    ctx.fillStyle = "white"
    ctx.font = "16px Arial"
    ctx.fillText("Next:", 220, 20)
@@ -93,7 +129,7 @@ def draw_next_shape():
            if cell:
                ctx.fillStyle = next_color
                ctx.fillRect(220 + x * 15, 30 + y * 15, 15, 15)
-               ctx.strokeStyle = "#000"
+               ctx.strokeStyle = "rgba(0,0,0,0.8)"
                ctx.strokeRect(220 + x * 15, 30 + y * 15, 15, 15)
 
 def draw_info():
@@ -109,6 +145,7 @@ def draw_info():
 
    draw_next_shape()
    return time_left
+
 # ===== Logic =====
 def check_collision(shape, pos):
    for y, row in enumerate(shape):
@@ -147,7 +184,6 @@ def new_piece():
    shape_pos = [COLS // 2 - len(current_shape[0]) // 2, 0]
    if check_collision(current_shape, shape_pos):
        end_game("gameover")
-
 def current_fall_interval_ms():
    base = int(1000 / max(0.01, speed_multiplier))
    if soft_drop_hold or soft_drop_burst:
@@ -210,7 +246,9 @@ def game_loop():
            adjust_speed()
            new_piece()
 
-   ctx.clearRect(0, 0, canvas.width, canvas.height)
+   # --- new: translucent backdrop instead of filling black cells ---
+   clear_and_paint_background()
+
    draw_grid()
    draw_ghost(current_shape, shape_pos)
    draw_shape(current_shape, shape_pos, current_color)
@@ -251,7 +289,7 @@ def on_key(event):
    elif key == "ArrowUp":
        rotate_cw()
 
-   ctx.clearRect(0, 0, canvas.width, canvas.height)
+   clear_and_paint_background()
    draw_grid()
    draw_ghost(current_shape, shape_pos)
    draw_shape(current_shape, shape_pos, current_color)
@@ -298,19 +336,20 @@ def handle_keyup(event):
 
 # ===== Wire & Start =====
 game_loop_proxy = create_proxy(game_loop)
-keydown_proxy   = create_proxy(handle_keydown)
-keyup_proxy     = create_proxy(handle_keyup)
+keydown_proxy  = create_proxy(handle_keydown)
+keyup_proxy    = create_proxy(handle_keyup)
 
 js.setInterval(game_loop_proxy, TICK_MS)
 js.document.addEventListener("keydown", keydown_proxy)
-js.document.addEventListener("keyup",   keyup_proxy)
+js.document.addEventListener("keyup",  keyup_proxy)
 
 # First frame
-ctx.clearRect(0, 0, canvas.width, canvas.height)
+clear_and_paint_background()
 draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
