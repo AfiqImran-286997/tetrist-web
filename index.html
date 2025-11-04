@@ -10,13 +10,18 @@
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
  <style>
-   html, body { font-size:16px; touch-action:manipulation }
+   html, body { font-size:16px; touch-action:manipulation; }
    button, input, select, textarea {
-     touch-action: manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+     touch-action:manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
 
-   /* === BACKGROUND IMAGE (spaces URL-encoded) === */
+   :root {
+     --bgw-desktop: 520px;    /* adjust to make logo smaller/larger */
+     --bgw-mobile: 60vmin;
+     --gap: 12px;
+   }
+
    body{
      margin:0;
      font-family:Arial, sans-serif;
@@ -26,73 +31,72 @@
      background-color:#000;
      background-image:url("LSS%20tetris%20background.png?v=3");
      background-repeat:no-repeat;
-     background-position:center center;
-     background-size:contain;      /* keep full logo visible */
+     background-position:center 10vh;
+     background-size: var(--bgw-desktop) auto;
      background-attachment:fixed;
      min-height:100vh;
    }
 
-   :root { --gap: 12px; }
+   @media (max-width:600px){
+     body{ background-size: var(--bgw-mobile) auto; background-position:center 8vh; }
+   }
 
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
-   /* Cards */
    .card{
      display:inline-block;
      padding:18px;
      border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
-     background:rgba(0,0,0,.60);   /* nice translucency */
+     background:rgba(0,0,0,.60);
      backdrop-filter:saturate(120%) blur(2px);
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
-   /* Make only the GAME panel itself transparent so the logo shows behind it */
+   /* Let the game panel be transparent so the logo is visible behind it */
    #gameArea{
-     background: transparent !important;
-     border-color: transparent !important;
-     backdrop-filter: none !important;
-     -webkit-backdrop-filter: none !important;
-     box-shadow: none !important;
-     padding-top: 8px;
+     background:transparent !important;
+     border-color:transparent !important;
+     backdrop-filter:none !important;
+     -webkit-backdrop-filter:none !important;
+     box-shadow:none !important;
+     padding-top:8px;
    }
 
-   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
-   .btn.primary   { background:#24d15d; color:#000 }
-   .btn.secondary { background:#2f7ded; color:#fff }
-   .btn.ghost     { background:#333; color:#fff }
-   .btn.small     { font-size:14px; padding:8px 12px }
+   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
+   .btn.primary  { background:#24d15d; color:#000; }
+   .btn.secondary{ background:#2f7ded; color:#fff; }
+   .btn.ghost    { background:#333; color:#fff; }
+   .btn.small    { font-size:14px; padding:8px 12px; }
 
-   .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
-   #loading { color:#ff0; font-size:18px; min-height:1.4em }
-   #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6)}
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
+   #loading { color:#ff0; font-size:18px; min-height:1.4em; }
+   #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   .screen { display:none }
-   .screen.active { display:block }
+   .screen { display:none; }
+   .screen.active { display:block; }
 
-   #gameArea { margin-top:10px }
+   #gameArea { margin-top:10px; }
 
-   /* Let the canvas be transparent; the patch below will convert the game's solid black
-      full-rect background fill into a semi-transparent overlay instead. */
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
-     background: transparent;
+     background:transparent;
    }
 
-   #restartBtn { display:none; margin-top:12px }
+   #restartBtn { display:none; margin-top:12px; }
 
-   #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap }
-   #controls button { font-size:24px; padding:10px 14px; margin:2px }
-   #controls button.small { font-size:16px }
-   #controls button:disabled { opacity:.5; cursor:not-allowed }
+   #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
+   #controls button { font-size:24px; padding:10px 14px; margin:2px; }
+   #controls button.small { font-size:16px; }
+   #controls button:disabled { opacity:.5; cursor:not-allowed; }
 
-   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px }
-   th, td { border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25) }
-   th { background:rgba(0,0,0,.35) }
-   tr:nth-child(even) td { background:rgba(0,0,0,.20) }
-   th.sel, td.sel { width:52px; text-align:center }
-   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
+   table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
+   th, td { border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
+   th { background:rgba(0,0,0,.35); }
+   tr:nth-child(even) td { background:rgba(0,0,0,.20); }
+   th.sel, td.sel { width:52px; text-align:center; }
+   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
  </style>
 </head>
 <body>
@@ -165,65 +169,66 @@
    </section>
  </div>
 <!-- Background music -->
- <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
+ <audio id="bgm" src="bg.mp3?v=1" loop preload="auto"></audio>
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* ----------------------------------------------------------------
-      Make the game's full-canvas BLACK fill semi-transparent *only*
-      on the #gameCanvas. No main.py change required.
-      Tweak these to taste:
-   -----------------------------------------------------------------*/
-   const ALPHA_DESKTOP = 0.70;  // 70% opacity
-   const ALPHA_MOBILE  = 0.70;  // 70% on phones, change to 0.65 if you want lighter
-
-   (function makePlayfieldSemiTransparent(){
-     const origFillRect = CanvasRenderingContext2D.prototype.fillRect;
-     CanvasRenderingContext2D.prototype.fillRect = function(x,y,w,h){
-       try{
-         if (this && this.canvas && this.canvas.id === 'gameCanvas') {
-           const fs = (this.fillStyle ?? '').toString().replace(/\s/g,'').toLowerCase();
-           const isBlack =
-             fs === 'black' || fs === '#000' || fs === '#000000' ||
-             fs === 'rgb(0,0,0)' || fs.startsWith('rgba(0,0,0');
-
-           const cw = this.canvas.width, ch = this.canvas.height;
-           const coversCanvas =
-             Math.abs(x) <= 1 && Math.abs(y) <= 1 &&
-             Math.abs(w - cw) <= 2 && Math.abs(h - ch) <= 2;
-
-           if (isBlack && coversCanvas) {
-             const old = this.fillStyle;
-             const alpha = window.matchMedia('(max-width: 480px)').matches ? ALPHA_MOBILE : ALPHA_DESKTOP;
-             this.fillStyle = `rgba(0,0,0,${alpha})`;
-             origFillRect.call(this, x, y, w, h);
-             this.fillStyle = old;
-             return;
-           }
-         }
-       } catch(_) {}
-       return origFillRect.call(this, x, y, w, h);
-     };
-   })();
-
    /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
    const audioStatus = document.getElementById("audioStatus");
    let ac;
-   function ensureAudioContext(){ try{ const C=window.AudioContext||window.webkitAudioContext; if(C&&(!ac||ac.state==="closed")) ac=new C(); if(ac&&ac.state!=="running") ac.resume().catch(()=>{});}catch{} }
+   function ensureAudioContext(){
+     try{
+       const C = window.AudioContext || window.webkitAudioContext;
+       if (C && (!ac || ac.state === "closed")) ac = new C();
+       if (ac && ac.state !== "running") ac.resume().catch(()=>{});
+     }catch{}
+   }
    function setStatus(msg){ audioStatus.textContent = msg || ""; }
    function musicIsPlaying(){ return !bgm.paused && !bgm.ended && bgm.currentTime>0; }
-   function updateMusicUI(){ const m=bgm.muted||bgm.volume===0||bgm.paused; btnMusic.textContent=m?"🔇 Music":"🔊 Music"; btnMusic.setAttribute("aria-pressed",(!m).toString()); }
-   async function tryStartMusic(){ ensureAudioContext(); const pref=localStorage.getItem("musicMuted"); if(pref==="true"){updateMusicUI();setStatus("Music: muted (saved)");return;} try{ bgm.muted=false; bgm.volume=0.6; await bgm.play(); updateMusicUI(); setStatus("Music: playing"); }catch{ updateMusicUI(); setStatus("Music: press Music to start (autoplay)"); } }
-   function toggleMusic(){ ensureAudioContext(); if(musicIsPlaying()){ bgm.pause(); bgm.muted=true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused"); } else { bgm.muted=false; bgm.volume=0.6; bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start")); localStorage.setItem("musicMuted","false"); } updateMusicUI(); }
+   function updateMusicUI(){
+     const m = bgm.muted || bgm.volume===0 || bgm.paused;
+     btnMusic.textContent = m ? "🔇 Music" : "🔊 Music";
+     btnMusic.setAttribute("aria-pressed", (!m).toString());
+   }
+   async function tryStartMusic(){
+     ensureAudioContext();
+     const pref = localStorage.getItem("musicMuted");
+     if (pref === "true"){ updateMusicUI(); setStatus("Music: muted (saved)"); return; }
+     try{
+       bgm.muted=false; bgm.volume=0.6; await bgm.play();
+       updateMusicUI(); setStatus("Music: playing");
+     }catch{
+       updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
+     }
+   }
+   function toggleMusic(){
+     ensureAudioContext();
+     if (musicIsPlaying()){
+       bgm.pause(); bgm.muted=true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
+     } else {
+       bgm.muted=false; bgm.volume=0.6;
+       bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start"));
+       localStorage.setItem("musicMuted","false");
+     }
+     updateMusicUI();
+   }
    btnMusic.addEventListener("click", toggleMusic);
    bgm.addEventListener("canplaythrough", ()=>setStatus("Music: loaded (ready)"));
-   bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bgm.mp3"));
-   (function initMusicPref(){ if(localStorage.getItem("musicMuted")==="true") bgm.muted=true; updateMusicUI(); const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);}; window.addEventListener("pointerdown",kick,{once:true}); })();
+   bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bg.mp3"));
+   (function initMusicPref(){
+     if (localStorage.getItem("musicMuted")==="true") bgm.muted=true;
+     updateMusicUI();
+     const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);};
+     window.addEventListener("pointerdown",kick,{once:true});
+   })();
 
    /* ----------------- Screen switching ----------------- */
-   function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+   function showScreen(id){
+     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+     document.getElementById(id).classList.add('active');
+   }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
@@ -241,16 +246,15 @@
      appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
      measurementId: "G-6JQX0TYB56"
    };
-
    const app = initializeApp(firebaseConfig);
    const db  = getFirestore(app);
 
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
-   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
-               .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+     .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
    let unsubscribeScores = null;
    const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
@@ -265,7 +269,7 @@
      }, (err)=>{
        console.error("scores listener:", err);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">offline / error</span>';
-       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>`;
+       tbody.innerHTML = '<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>';
      });
    }
    function detachScoresListener(){ if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; } }
@@ -273,17 +277,17 @@
    function renderRows(rows){
      tbody.innerHTML = "";
      if (!rows.length){
-       tbody.innerHTML = `<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>`;
+       tbody.innerHTML = '<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>';
        return;
      }
      rows.forEach((r,i)=>{
        const tr = document.createElement("tr");
-       tr.innerHTML = `
-         <td class="sel"><input type="checkbox" class="selbox cloud" data-docid="\${r.id}"></td>
-         <td>\${i+1}</td>
-         <td>\${escapeHtml(r.name||"Player")}</td>
-         <td>\${r.score}</td>
-         <td>\${fmt(r.createdAt)}</td>`;
+       tr.innerHTML =
+         '<td class="sel"><input type="checkbox" class="selbox cloud" data-docid="'+r.id+'"></td>'+
+         '<td>'+(i+1)+'</td>'+
+         '<td>'+escapeHtml(r.name||"Player")+'</td>'+
+         '<td>'+r.score+'</td>'+
+         '<td>'+fmt(r.createdAt)+'</td>';
        tbody.appendChild(tr);
      });
    }
@@ -294,7 +298,7 @@
      }catch(e){ console.error("addScore:", e); }
    }
 
-   function checkAdmin(label){ const pw = prompt(\`\${label}\nEnter admin password:\`); return pw && pw === ADMIN_PASSWORD; }
+   function checkAdmin(label){ const pw = prompt(label+"\nEnter admin password:"); return pw && pw === ADMIN_PASSWORD; }
 
    function disableCloudButtons(disable, cache){
      const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
@@ -309,7 +313,7 @@
        const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
        if (!checks.length){ alert("Please tick at least one row."); return; }
        await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
-       alert(\`Deleted \${checks.length} item(s) from cloud.\`);
+       alert("Deleted "+checks.length+" item(s) from cloud.");
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
@@ -332,7 +336,7 @@
    window.onGameOver = async (score, reason) => {
      const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
-       const name = prompt(\`\${nice}\nYour score: \${score}\nEnter your name for the Score Board:\`) || "Player";
+       const name = prompt(nice+"\nYour score: "+score+"\nEnter your name for the Score Board:") || "Player";
        await addScoreToCloud(name, score);
        attachScoresListener();
        showScreen('screen-scores');
@@ -369,20 +373,20 @@
 
      const callPy = (c)=> pyodide.runPython(c);
      document.getElementById("restartBtn").onclick = () => location.reload();
-     document.getElementById("btnLeft").addEventListener("click",  () => callPy(`on_key({"key":"ArrowLeft"})`));
-     document.getElementById("btnRight").addEventListener("click", () => callPy(`on_key({"key":"ArrowRight"})`));
-     document.getElementById("btnRotate").addEventListener("click",() => callPy(`on_key({"key":"ArrowUp"})`));
+     document.getElementById("btnLeft").addEventListener("click",  () => callPy('on_key({"key":"ArrowLeft"})'));
+     document.getElementById("btnRight").addEventListener("click", () => callPy('on_key({"key":"ArrowRight"})'));
+     document.getElementById("btnRotate").addEventListener("click",() => callPy('on_key({"key":"ArrowUp"})'));
 
      const btnDown = document.getElementById("btnDown");
-     const downStart = () => { callPy(`start_soft_drop_hold()`); };
-     const downEnd   = () => callPy(`stop_soft_drop_hold()`);
+     const downStart = () => { callPy('start_soft_drop_hold()'); };
+     const downEnd   = () => { callPy('stop_soft_drop_hold()'); };
      btnDown.addEventListener("mousedown", downStart);
      btnDown.addEventListener("mouseup",   downEnd);
      btnDown.addEventListener("mouseleave",downEnd);
      btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
-     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
-     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd(); }, {passive:false});
-     btnDown.addEventListener("click", () => { callPy(`soft_drop_tap()`); });
+     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
+     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+     btnDown.addEventListener("click", () => { callPy('soft_drop_tap()'); });
    });
 
    document.getElementById("btnScores").addEventListener("click", ()=>{
@@ -401,7 +405,8 @@
    window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
-</html
+</html>
+
 
 
 
