@@ -5,159 +5,108 @@
  <meta name="viewport"
        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
  <title>Tetris - Web Version</title>
+ <link rel="icon" href="data:;base64,=" />
 
- <!-- Pyodide Runtime -->
+ <!-- Pyodide to run main.py -->
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
- <!-- ========================= 🎨 STYLES ========================= -->
  <style>
-   /* === GLOBAL SETTINGS === */
+   /* ---------- GLOBAL touch/selection hardening ---------- */
    html, body {
-     font-size: 16px;
-     touch-action: manipulation;
-     -webkit-user-select: none; user-select: none;
-     -webkit-touch-callout: none;
-     margin: 0;
-     background: #000;
-     color: #fff;
-     min-height: 100vh;
-     text-align: center;
-     font-family: Arial, sans-serif;
+     font-size:16px;
+     touch-action:manipulation;
+     -webkit-user-select:none; user-select:none;
+     -webkit-touch-callout:none;
+     margin:0;
+     background:#000; color:#fff;
+     min-height:100vh;
    }
    * { -webkit-tap-highlight-color: transparent; }
-
-   :root {
-     --gap: 12px;
-     --logoW-desktop: 420px;
-     --logoW-mobile: 70vmin;
+   .wrap, #gameArea, canvas, h1, p, table, th, td, button {
+     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+   }
+   button, input, select, textarea {
+     touch-action:manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+     -webkit-user-select:none; user-select:none;
    }
 
-   .wrap { max-width: 900px; margin: 0 auto; padding: 10px 16px; }
-   h1 { margin: 20px 0; text-shadow: 0 2px 6px rgba(0,0,0,.6); }
+   :root{ --gap:12px; --logoW-desktop:420px; --logoW-mobile:70vmin; }
+   body{ text-align:center; font-family:Arial, sans-serif; }
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
+   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
-   .card {
-     display: inline-block;
-     padding: 18px;
-     border-radius: 10px;
-     border: 1px solid rgba(255,255,255,.22);
-     background: rgba(0,0,0,.60);
-     backdrop-filter: saturate(120%) blur(2px);
-     -webkit-backdrop-filter: saturate(120%) blur(2px);
+   .card{
+     display:inline-block; padding:18px; border-radius:10px;
+     border:1px solid rgba(255,255,255,.22);
+     background:rgba(0,0,0,.60);
+     backdrop-filter:saturate(120%) blur(2px);
+     -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
-   /* === GAME AREA === */
-   #gameArea {
-     position: relative;
-     padding-top: 8px;
-     background: transparent !important;
-     border: none !important;
-     box-shadow: none !important;
-     backdrop-filter: none !important;
-     -webkit-backdrop-filter: none !important;
-     display: inline-block;
-     transform-origin: top center;
-     margin-top: 10px;
+   /* --- GAME AREA --- */
+   #gameArea{
+     position:relative; padding-top:8px;
+     background:transparent !important; border-color:transparent !important;
+     box-shadow:none !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+     display:inline-block; transform-origin: top center; will-change: transform; margin-top:10px;
    }
-
-   /* Centered logo behind play area */
-   #gameArea::before {
-     content: "";
-     position: absolute;
-     inset: 0;
-     z-index: 0;
-     background-image: url("LSS%20tetris%20background.png?v=3");
-     background-repeat: no-repeat;
-     background-position: center center;
+   /* centered logo behind the game only */
+   #gameArea::before{
+     content:""; position:absolute; inset:0; z-index:0;
+     background-repeat:no-repeat; background-position:center center;
+     background-image:url("LSS%20tetris%20background.png?v=3");
      background-size: var(--logoW-desktop) auto;
-     opacity: 0.95;
-     pointer-events: none;
+     opacity:0.95; pointer-events:none;
    }
-   @media (max-width:600px) {
-     #gameArea::before { background-size: var(--logoW-mobile) auto; }
-   }
-   #gameArea > * { position: relative; z-index: 1; }
+   @media (max-width:600px){ #gameArea::before{ background-size:var(--logoW-mobile) auto; } }
+   #gameArea > * { position:relative; z-index:1; }
 
-   /* === CANVAS === */
-   canvas {
-     border: 2px solid rgba(255,255,255,.85);
-     margin-top: 12px;
-     background: transparent;
-     width: 300px;
-     height: 600px;
+   canvas{
+     border:2px solid rgba(255,255,255,.85); margin-top:12px; background:transparent;
+     width:300px; height:600px; /* logical base; container is scaled */
    }
 
-   /* === BUTTONS === */
-   .btn {
-     padding: 12px 20px;
-     font-size: 18px;
-     border: 0;
-     border-radius: 6px;
-     margin: 6px 8px;
-     cursor: pointer;
-   }
-   .btn.primary   { background: #24d15d; color: #000; }
-   .btn.secondary { background: #2f7ded; color: #fff; }
-   .btn.ghost     { background: #333; color: #fff; }
-   .btn.small     { font-size: 14px; padding: 8px 12px; }
+   .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
+   .btn.primary{ background:#24d15d; color:#000; }
+   .btn.secondary{ background:#2f7ded; color:#fff; }
+   .btn.ghost{ background:#333; color:#fff; }
+   .btn.small{ font-size:14px; padding:8px 12px; }
 
-   #restartBtn { display: none; margin-top: 12px; }
-   #loading { color: #ff0; font-size: 18px; min-height: 1.4em; }
-   #audioStatus { font: 12px/1.2 Arial, sans-serif; color: #eee; margin-top: 6px; }
+   #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
+   #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   /* === CONTROLS === */
-   #controls {
-     margin: 16px 0;
-     display: flex;
-     gap: var(--gap);
-     justify-content: center;
-     flex-wrap: wrap;
-   }
-   #controls button {
-     font-size: 28px;
-     padding: 16px 22px;
-     margin: 4px;
-     border-radius: 8px;
-     min-width: 60px;
-   }
-   #controls button:disabled { opacity: .5; cursor: not-allowed; }
+   .screen{ display:none; }
+   .screen.active{ display:block; }
 
-   /* === TABLE === */
-   table {
-     border-collapse: collapse;
-     margin: 10px auto;
-     width: 96%;
-     max-width: 620px;
-   }
-   th, td {
-     border: 1px solid rgba(255,255,255,.2);
-     padding: 8px 10px;
-     text-align: left;
-     background: rgba(0,0,0,.25);
-   }
-   th { background: rgba(0,0,0,.35); }
-   tr:nth-child(even) td { background: rgba(0,0,0,.20); }
-   th.sel, td.sel { width: 52px; text-align: center; }
-   .muted { opacity: .9; font-size: 12px; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+   #restartBtn{ display:none; margin-top:12px; }
 
-   .screen { display: none; }
-   .screen.active { display: block; }
+   #controls{ margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
+   #controls button{ font-size:24px; padding:10px 14px; margin:2px; }
+   #controls button.small{ font-size:16px; }
+   #controls button:disabled{ opacity:.5; cursor:not-allowed; }
+
+   table{ border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
+   th, td{ border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
+   th{ background:rgba(0,0,0,.35); }
+   tr:nth-child(even) td{ background:rgba(0,0,0,.20) }
+   th.sel, td.sel{ width:52px; text-align:center }
+   .muted{ opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
  </style>
 </head>
-
- <body>
+<body>
  <div class="wrap">
    <h1>Tetris - Web Version</h1>
 
-   <!-- 🎵 MUSIC CONTROL -->
+   <!-- Music control -->
    <div class="card" style="margin-bottom:14px">
-     <button id="btnMusic" class="btn small ghost" aria-pressed="false">🔇 Music</button>
+     <button id="btnMusic" class="btn small ghost" aria-pressed="false" title="Toggle music">🔇 Music</button>
      <div id="audioStatus"></div>
    </div>
 
-   <!-- 🏠 MENU SCREEN -->
+   <!-- ===== MENU ===== -->
    <section id="screen-menu" class="screen active">
      <div class="card">
-       <p id="loading">Loading engine…</p>
+       <p id="loading" aria-live="polite">Loading engine…</p>
        <div style="margin-top:12px">
          <button id="btnPlay" class="btn primary">▶ Play</button>
          <button id="btnScores" class="btn secondary">🏆 Score Board</button>
@@ -165,7 +114,7 @@
      </div>
    </section>
 
-   <!-- 🎮 GAME SECTION -->
+   <!-- ===== GAME ===== -->
    <section id="screen-game" class="screen">
      <div id="gameArea" class="card">
        <p id="gameLoading" style="color:#ff0; min-height:1.2em">Loading game, please wait…</p>
@@ -185,23 +134,16 @@
      </div>
    </section>
 
-   <!-- 🏆 SCOREBOARD SECTION -->
+   <!-- ===== SCOREBOARD ===== -->
    <section id="screen-scores" class="screen">
      <div class="card" style="min-width:340px">
        <h2>🏆 Score Board</h2>
+
        <div class="muted" id="cloudStatus">Cloud: <em>checking…</em></div>
        <p class="muted">Top 10 highest scores (cloud)</p>
 
        <table id="scoresTable">
-         <thead>
-           <tr>
-             <th class="sel">Sel</th>
-             <th>#</th>
-             <th>Name</th>
-             <th>Score</th>
-             <th>Date</th>
-           </tr>
-         </thead>
+         <thead><tr><th class="sel">Sel</th><th>#</th><th>Name</th><th>Score</th><th>Date</th></tr></thead>
          <tbody></tbody>
        </table>
 
@@ -214,22 +156,22 @@
    </section>
  </div>
 
-  <!-- 🎧 BACKGROUND MUSIC -->
+ <!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
- <!-- ========================= ⚙️ APP SCRIPT ========================= -->
+ <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* 📱 Prevent double-tap zoom (iOS) */
+   /* Kill double-tap zoom (extra help for iOS) */
    let __lastTouchEnd = 0;
-   document.addEventListener('touchend', e => {
+   document.addEventListener('touchend', function(e){
      const now = Date.now();
      if (now - __lastTouchEnd <= 300) e.preventDefault();
      __lastTouchEnd = now;
    }, {passive:false, capture:true});
 
-   /* 🖥️ Fit the game area to any screen size */
+   /* ---------------- Fit the whole game panel to the viewport ---------------- */
    const gameArea = document.getElementById('gameArea');
-   function fitGameToViewport() {
+   function fitGameToViewport(){
      gameArea.style.transform = 'none';
      const panelW = gameArea.scrollWidth;
      const panelH = gameArea.scrollHeight;
@@ -241,17 +183,17 @@
    window.addEventListener('resize', fitGameToViewport);
    window.addEventListener('orientationchange', fitGameToViewport);
 
-   /* 🎵 MUSIC SYSTEM */
+   /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
    const audioStatus = document.getElementById("audioStatus");
    let ac;
-   function ensureAudioContext() {
-     try {
+   function ensureAudioContext(){
+     try{
        const C = window.AudioContext || window.webkitAudioContext;
        if (C && (!ac || ac.state === "closed")) ac = new C();
        if (ac && ac.state !== "running") ac.resume().catch(()=>{});
-     } catch {}
+     }catch{}
    }
    function setStatus(msg){ audioStatus.textContent = msg || ""; }
    function musicIsPlaying(){ return !bgm.paused && !bgm.ended && bgm.currentTime>0; }
@@ -264,18 +206,17 @@
      ensureAudioContext();
      const pref = localStorage.getItem("musicMuted");
      if (pref === "true"){ updateMusicUI(); setStatus("Music: muted (saved)"); return; }
-     try {
+     try{
        bgm.muted=false; bgm.volume=0.6; await bgm.play();
        updateMusicUI(); setStatus("Music: playing");
-     } catch {
+     }catch{
        updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
      }
    }
    function toggleMusic(){
      ensureAudioContext();
      if (musicIsPlaying()){
-       bgm.pause(); bgm.muted=true;
-       localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
+       bgm.pause(); bgm.muted=true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
      } else {
        bgm.muted=false; bgm.volume=0.6;
        bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start"));
@@ -284,6 +225,8 @@
      updateMusicUI();
    }
    btnMusic.addEventListener("click", toggleMusic);
+   bgm.addEventListener("canplaythrough", ()=>setStatus("Music: loaded (ready)"));
+   bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bg.mp3"));
    (function initMusicPref(){
      if (localStorage.getItem("musicMuted")==="true") bgm.muted=true;
      updateMusicUI();
@@ -291,7 +234,14 @@
      window.addEventListener("pointerdown",kick,{once:true});
    })();
 
-   /* 🪣 FIREBASE SETUP */
+   /* ----------------- Screen switching helpers ----------------- */
+   function showScreen(id){
+     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+     document.getElementById(id).classList.add('active');
+     if (id === 'screen-game'){ setTimeout(fitGameToViewport, 0); }
+   }
+
+   /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
@@ -308,14 +258,13 @@
      measurementId: "G-6JQX0TYB56"
    };
    const app = initializeApp(firebaseConfig);
-   const db = getFirestore(app);
+   const db  = getFirestore(app);
 
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
-   const escapeHtml = s => (s??"").toString().replace(/[&<>"']/g, c =>
-     ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-   const fmt = ts => new Date(ts?.seconds? ts.seconds*1000 : Date.now())
+   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+   const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
      .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
    let unsubscribeScores = null;
@@ -323,17 +272,18 @@
 
    function attachScoresListener(){
      if (unsubscribeScores) return;
-     unsubscribeScores = onSnapshot(topQuery, snap => {
+     unsubscribeScores = onSnapshot(topQuery, (snap)=>{
        const rows = [];
        snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
        renderRows(rows);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#24d15d">online</span>';
-     }, err => {
+     }, (err)=>{
        console.error("scores listener:", err);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">offline / error</span>';
        tbody.innerHTML = '<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>';
      });
    }
+   function detachScoresListener(){ if (unsubscribeScores){ unsubscribeScores(); unsubscribeScores = null; } }
 
    function renderRows(rows){
      tbody.innerHTML = "";
@@ -354,74 +304,103 @@
    }
 
    async function addScoreToCloud(name, score){
-     try {
+     try{
        await addDoc(collection(db,"scores"), { name: name||"Player", score: Number(score)||0, createdAt: serverTimestamp() });
-     } catch(e){ console.error("addScore:", e); }
+     }catch(e){ console.error("addScore:", e); }
+   }
+
+   function checkAdmin(label){ const pw = prompt(label+"\nEnter admin password:"); return pw && pw === ADMIN_PASSWORD; }
+   function disableCloudButtons(disable, cache){
+     const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
+     if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
+     controls.forEach((b,i)=> b.disabled = cache ? cache[i] : false);
    }
 
    async function cloudDeleteSelected(){
-     if (!prompt("Enter admin password:") === ADMIN_PASSWORD) return;
-     const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
-     if (!checks.length){ alert("Please tick at least one row."); return; }
-     await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.dataset.docid))));
-     alert("Deleted "+checks.length+" item(s).");
+     if (!checkAdmin("Clear SELECTED rows?")) return;
+     const btns = disableCloudButtons(true);
+     try{
+       const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
+       if (!checks.length){ alert("Please tick at least one row."); return; }
+       await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
+       alert("Deleted "+checks.length+" item(s) from cloud.");
+     }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
+     finally{ disableCloudButtons(false, btns); }
    }
 
    async function cloudClearAll(){
-     if (!prompt("Enter admin password:") === ADMIN_PASSWORD) return;
-     const ids = Array.from(document.querySelectorAll(".selbox.cloud")).map(i=>i.dataset.docid);
-     if (!ids.length){ alert("No scores to delete."); return; }
-     await Promise.all(ids.map(id => deleteDoc(doc(db,"scores", id))));
-     alert("Cleared all scores.");
+     if (!checkAdmin("Clear ALL scores that are currently shown?")) return;
+     const btns = disableCloudButtons(true);
+     try{
+       const ids = Array.from(document.querySelectorAll(".selbox.cloud")).map(i=>i.getAttribute("data-docid"));
+       if (!ids.length){ alert("No scores to delete."); return; }
+       await Promise.all(ids.map(id => deleteDoc(doc(db,"scores", id))));
+       alert("Cleared the table’s scores from cloud.");
+     }catch(e){ console.error(e); alert("Failed to clear scores (see console)."); }
+     finally{ disableCloudButtons(false, btns); }
    }
 
-   /* 🧠 PYODIDE + GAME INITIALIZATION */
+   /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
-   window.onGameOver = async (score, reason)=>{
-     const msg = reason==="timeup"?"Time Up!":"Game Over!";
+
+   window.onGameOver = async (score, reason) => {
+     const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
-       const name = prompt(msg+"\nYour score: "+score+"\nEnter your name:") || "Player";
+       const name = prompt(nice+"\nYour score: "+score+"\nEnter your name for the Score Board:") || "Player";
        await addScoreToCloud(name, score);
        attachScoresListener();
-       document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-       document.getElementById('screen-scores').classList.add('active');
+       showScreen('screen-scores');
      }, 50);
    };
 
-   async function preloadEngine(){
-     document.getElementById("loading").innerText="Loading engine…";
-     pyodide=await loadPyodide({ indexURL:"https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-     const resp=await fetch("main.py?v="+Date.now(),{cache:"no-store"});
-     gameCode=await resp.text();
-     document.getElementById("loading").innerText="Ready!";
+  async function preloadEngine(){
+     try{
+       document.getElementById("loading").innerText = "Loading engine…";
+       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+       const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
+       gameCode = await resp.text();
+       document.getElementById("loading").innerText = "Ready!";
+     }catch(e){
+       console.error(e);
+       document.getElementById("loading").innerText = "Failed to load. See console.";
+     }
    }
    preloadEngine();
 
-   /* 🎮 GAME BUTTON HANDLERS */
+   /* ---------------- Smooth / repeating button controls ---------------- */
    function makeRepeater(el, fn, delay=150, repeat=55){
      let startT=null, repT=null, act=false;
-     const stop=()=>{ act=false; clearTimeout(startT); clearInterval...fn,repeat);}; const start=e=>{e.preventDefault();if(act)return;act=true;fn();startT=setTimeout(()=>{repT=setInterval(fn,repeat);},delay);}; el.addEventListener('pointerdown',start,{passive:false}); el.addEventListener('pointerup',stop); el.addEventListener('pointerleave',stop); el.addEventListener('pointercancel',stop); el.addEventListener('click',e=>e.preventDefault()); }
+     const stop=()=>{ act=false; if(startT){clearTimeout(startT);startT=null;} if(repT){clearInterval(repT);repT=null;} };
+     const start=e=>{ e.preventDefault(); if(act) return; act=true; fn(); startT=setTimeout(()=>{ repT=setInterval(fn, repeat); }, delay); };
+     el.addEventListener('pointerdown',start,{passive:false});
+     el.addEventListener('pointerup',stop);
+     el.addEventListener('pointerleave',stop);
+     el.addEventListener('pointercancel',stop);
+     el.addEventListener('click',e=>e.preventDefault());
+   }
 
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
-     tryStartMusic(); document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-     document.getElementById('screen-game').classList.add('active');
+     tryStartMusic();
+     showScreen('screen-game');
      if (gameStarted) return;
      gameStarted = true;
+
      const gl=document.getElementById("gameLoading");
      gl.innerText="Starting game…";
      await pyodide.runPythonAsync(gameCode);
      gl.innerText="Game Loaded!";
      document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
+
      const callPy = c=>pyodide.runPython(c);
      document.getElementById("restartBtn").onclick=()=>location.reload();
 
-     makeRepeater(document.getElementById("btnLeft"),()=>callPy('on_key({"key":"ArrowLeft"})'),130,50);
-     makeRepeater(document.getElementById("btnRight"),()=>callPy('on_key({"key":"ArrowRight"})'),130,50);
-     makeRepeater(document.getElementById("btnRotate"),()=>callPy('on_key({"key":"ArrowUp"})'),160,90);
+     makeRepeater(document.getElementById("btnLeft"),   ()=>callPy('on_key({"key":"ArrowLeft"})'), 130, 50);
+     makeRepeater(document.getElementById("btnRight"),  ()=>callPy('on_key({"key":"ArrowRight"})'),130, 50);
+     makeRepeater(document.getElementById("btnRotate"), ()=>callPy('on_key({"key":"ArrowUp"})'),   160, 90);
 
      const btnDown=document.getElementById("btnDown");
      const downStart=e=>{e.preventDefault();callPy('start_soft_drop_hold()');};
-     const downEnd=()=>{callPy('stop_soft_drop_hold()');};
+     const downEnd  =()=>{callPy('stop_soft_drop_hold()');};
      btnDown.addEventListener("pointerdown",downStart,{passive:false});
      btnDown.addEventListener("pointerup",downEnd);
      btnDown.addEventListener("pointerleave",downEnd);
@@ -431,14 +410,16 @@
      fitGameToViewport();
    });
 
-   document.getElementById("btnScores").addEventListener("click", ()=>{attachScoresListener();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-scores').classList.add('active');});
-   document.getElementById("btnBackFromScores").addEventListener("click", ()=>{unsubscribeScores?.();document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('screen-menu').classList.add('active');});
+   document.getElementById("btnScores").addEventListener("click", ()=>{ attachScoresListener(); showScreen('screen-scores'); });
+   document.getElementById("btnBackFromScores").addEventListener("click", ()=>{ detachScoresListener(); showScreen('screen-menu'); });
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
-   document.getElementById("btnBackFromGame").addEventListener("click", ()=>location.reload());
+   document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
+   window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
 </html>
+
 
 
 
