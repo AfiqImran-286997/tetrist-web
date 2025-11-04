@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
- <!-- keep zoom disabled as you already had -->
+ <!-- lock zoom and use iOS safe areas -->
  <meta name="viewport"
-       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
  <title>Tetris - Web Version</title>
 
  <!-- Pyodide to run main.py -->
@@ -14,19 +14,21 @@
    /* ---------- GLOBAL touch/selection hardening ---------- */
    html, body {
      font-size:16px;
-     touch-action:manipulation;             /* prevent double-tap zoom heuristics */
-     -webkit-user-select:none; user-select:none;   /* no text selection */
-     -webkit-touch-callout:none;                   /* no copy/select popup */
+     touch-action:manipulation;                 /* prevent double-tap zoom heuristics */
+     -webkit-user-select:none; user-select:none;/* no text selection */
+     -webkit-touch-callout:none;                /* no copy/select bubble */
+     margin:0;
+     background:#000;
+     color:#fff;
+     min-height:100vh;
    }
-   /* remove tap highlight glow on iOS */
    * { -webkit-tap-highlight-color: transparent; }
 
-   /* also lock common containers/elements */
+   /* common elements also non-selectable */
    .wrap, #gameArea, canvas, h1, p, table, th, td, button {
      -webkit-user-select:none; user-select:none;
      -webkit-touch-callout:none;
    }
-
    button, input, select, textarea {
      touch-action:manipulation;
      -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
@@ -35,23 +37,17 @@
 
    :root{
      --gap: 12px;
-     /* logo size behind game (tweak these) */
+     /* logo size behind game (tweak if you want) */
      --logoW-desktop: 420px;
      --logoW-mobile: 70vmin;
+     --page-padding: max(12px, env(safe-area-inset-left));
    }
 
-   body{
-     margin:0;
-     font-family:Arial, sans-serif;
-     color:#fff;
-     text-align:center;
-     background:#000;
-     min-height:100vh;
-   }
-
-   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
+   body{ text-align:center; font-family:Arial, sans-serif; }
 
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
+
+   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
    .card{
      display:inline-block;
@@ -63,7 +59,7 @@
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
-   /* Game panel – fully transparent; logo sits behind it */
+   /* --- GAME AREA --- */
    #gameArea{
      position:relative;
      padding-top:8px;
@@ -72,7 +68,10 @@
      box-shadow:none !important;
      backdrop-filter:none !important;
      -webkit-backdrop-filter:none !important;
-     overflow:hidden;
+
+     display:inline-block;               /* needed for clean transform scaling */
+     transform-origin: top center;       /* we scale from the top */
+     will-change: transform;
      margin-top:10px;
    }
 
@@ -96,6 +95,14 @@
    /* Lift canvas & buttons above the logo */
    #gameArea > * { position:relative; z-index:1; }
 
+   /* Canvas stays logical 300x600; CSS size can be anything, but we scale container instead */
+   canvas {
+     border:2px solid rgba(255,255,255,.85);
+     margin-top:12px;
+     background:transparent;
+     width:300px; height:600px;   /* base design size (scale container later) */
+   }
+
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
    .btn.primary  { background:#24d15d; color:#000; }
    .btn.secondary{ background:#2f7ded; color:#fff; }
@@ -108,13 +115,6 @@
    .screen { display:none; }
    .screen.active { display:block; }
 
-   canvas {
-     border:2px solid rgba(255,255,255,.85);
-     margin-top:12px;
-     background:transparent;    /* lets the logo show through */
-     width:300px; height:600px; /* explicit size helps iOS layout */
-   }
-
    #restartBtn { display:none; margin-top:12px; }
 
    #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
@@ -125,9 +125,9 @@
    table { border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
    th, td { border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
    th { background:rgba(0,0,0,.35); }
-   tr:nth-child(even) td { background:rgba(0,0,0,.20); }
-   th.sel, td.sel { width:52px; text-align:center; }
-   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+   tr:nth-child(even) td { background:rgba(0,0,0,.20) }
+   th.sel, td.sel { width:52px; text-align:center }
+   .muted { opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
  </style>
 </head>
 <body>
@@ -204,15 +204,36 @@
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* ------------- Prevent iOS double-tap zoom (without changing pinch settings) ------------- */
+   /* Kill double-tap zoom (we already set user-scalable=no, this helps iOS further) */
    let __lastTouchEnd = 0;
    document.addEventListener('touchend', function(e){
      const now = Date.now();
-     if (now - __lastTouchEnd <= 300) {
-       e.preventDefault();  // kill double-tap zoom
-     }
+     if (now - __lastTouchEnd <= 300) e.preventDefault();
      __lastTouchEnd = now;
    }, {passive:false, capture:true});
+
+   /* ---------------- Fit the whole game panel to the viewport ---------------- */
+   const gameArea = document.getElementById('gameArea');
+   function fitGameToViewport(){
+     // Reset transform to get natural size
+     gameArea.style.transform = 'none';
+
+     // natural/pref layout size of the game panel (canvas + text + buttons)
+     const panelW = gameArea.scrollWidth;
+     const panelH = gameArea.scrollHeight;
+
+     // available viewport (leave a small breathing space)
+     const vw = Math.max(320, window.innerWidth)  - 8;
+     const vh = Math.max(320, window.innerHeight) - 8;
+
+     // scale so the panel fits both width and height
+     const scale = Math.min(1, vw / panelW, vh / panelH);
+
+     gameArea.style.transform = `scale(${scale})`;
+   }
+   // refit on orientation/resize and when Game screen is opened
+   window.addEventListener('resize', fitGameToViewport);
+   window.addEventListener('orientationchange', fitGameToViewport);
 
    /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
@@ -269,6 +290,12 @@
    function showScreen(id){
      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
+
+     // when entering the game screen, fit it
+     if (id === 'screen-game'){
+       // wait a tick so layout settles, then scale
+       setTimeout(fitGameToViewport, 0);
+     }
    }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
@@ -428,6 +455,9 @@
      btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
      btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
      btnDown.addEventListener("click", () => { callPy('soft_drop_tap()'); });
+
+     // make sure first show also fits
+     fitGameToViewport();
    });
 
    document.getElementById("btnScores").addEventListener("click", ()=>{
@@ -447,6 +477,7 @@
  </script>
 </body>
 </html>
+
 
 
 
