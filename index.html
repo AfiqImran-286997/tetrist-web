@@ -24,10 +24,10 @@
      text-align:center;
 
      background-color:#000;
-     background-image:url("LSS%20tetris%20background.png?v=3"); /* <-- key fix */
+     background-image:url("LSS%20tetris%20background.png?v=3"); /* your uploaded filename */
      background-repeat:no-repeat;
      background-position:center center;
-     background-size:contain;        /* keep full logo visible */
+     background-size:contain;      /* keep the full logo visible */
      background-attachment:fixed;
      min-height:100vh;
    }
@@ -42,16 +42,16 @@
      padding:18px;
      border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
-     background:rgba(0,0,0,.60);              /* translucency for logo to show through */
+     background:rgba(0,0,0,.60);      /* translucency for logo to show through */
      backdrop-filter:saturate(120%) blur(2px);
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
-   .btn.primary { background:#24d15d; color:#000 }
+   .btn.primary   { background:#24d15d; color:#000 }
    .btn.secondary { background:#2f7ded; color:#fff }
-   .btn.ghost { background:#333; color:#fff }
-   .btn.small { font-size:14px; padding:8px 12px }
+   .btn.ghost     { background:#333; color:#fff }
+   .btn.small     { font-size:14px; padding:8px 12px }
 
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
@@ -61,7 +61,20 @@
    .screen.active { display:block }
 
    #gameArea { margin-top:10px }
-   canvas { border:2px solid rgba(255,255,255,.85); margin-top:12px }
+
+   /* ===== TRANSPARENT PLAYFIELD ===== */
+   canvas {
+     border:2px solid rgba(255,255,255,.85);
+     margin-top:12px;
+     background: rgba(0,0,0,0.65);   /* <— key change: see-through black */
+     backdrop-filter: blur(1px);      /* softens the logo under grid for readability */
+   }
+
+   /* On small screens (phones), make it a touch more transparent */
+   @media (max-width: 480px) {
+     canvas { background: rgba(0,0,0,0.55); }
+   }
+
    #restartBtn { display:none; margin-top:12px }
 
    #controls { margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap }
@@ -146,7 +159,6 @@
      </div>
    </section>
  </div>
-
 <!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
@@ -172,7 +184,7 @@
    function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
-   import { initializeApp }  from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+   import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
      query, orderBy, limit, deleteDoc, doc, onSnapshot
@@ -348,6 +360,8 @@
  </script>
 </body>
 </html>
+
+
 
 
 
