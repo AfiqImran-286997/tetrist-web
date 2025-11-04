@@ -15,21 +15,21 @@ COLS = 10
 COLORS = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFA500", "#800080", "#00FFFF"]
 
 SHAPES = [
-   [[1, 1, 1, 1]],                 # I
-   [[1, 1], [1, 1]],               # O
-   [[0, 1, 0], [1, 1, 1]],         # T
-   [[1, 0, 0], [1, 1, 1]],         # L
-   [[0, 0, 1], [1, 1, 1]],         # J
-   [[1, 1, 0], [0, 1, 1]],         # S
-   [[0, 1, 1], [1, 1, 0]]          # Z
+   [[1, 1, 1, 1]],                # I
+   [[1, 1], [1, 1]],              # O
+   [[0, 1, 0], [1, 1, 1]],        # T
+   [[1, 0, 0], [1, 1, 1]],        # L
+   [[0, 0, 1], [1, 1, 1]],        # J
+   [[1, 1, 0], [0, 1, 1]],        # S
+   [[0, 1, 1], [1, 1, 0]]         # Z
 ]
 
 # Steady game tick
-TICK_MS = 50                        # ~20 FPS heartbeat
+TICK_MS = 50  # ~20 FPS heartbeat
 
 # Soft drop timing
-MIN_DROP_MS = 50                    # min fall interval while dropping
-BURST_MS = 180                      # tap burst duration for Down
+MIN_DROP_MS = 50      # min fall interval while dropping
+BURST_MS = 180        # tap burst duration for Down
 
 # ===== State =====
 grid = [[0 for _ in range(COLS)] for _ in range(ROWS)]
@@ -65,15 +65,15 @@ def _is_mobile():
    except Exception:
        return False
 
-BG_ALPHA_DESKTOP = 0.70   # 45% black
-BG_ALPHA_MOBILE  = 0.70   # 35% black
+BG_ALPHA_DESKTOP = 0.45
+BG_ALPHA_MOBILE  = 0.40
 
-GRID_LINE_ALPHA  = 0.28   # grid line opacity for empty cells
-GRID_LINE_ALPHA_STRONG = 0.85  # outline for filled cells
+GRID_LINE_ALPHA = 0.22
+GRID_LINE_ALPHA_STRONG = 0.80
 
 def clear_and_paint_background():
-   """Clear the canvas and paint a single semi-transparent black panel so the
-   body background (LSS logo) is visible through the playfield."""
+   """Clear the canvas and paint a semi-transparent black panel so the
+   body background (logo) is visible through the playfield."""
    ctx.clearRect(0, 0, CW, CH)
    alpha = BG_ALPHA_MOBILE if _is_mobile() else BG_ALPHA_DESKTOP
    ctx.fillStyle = f"rgba(0,0,0,{alpha})"
@@ -94,7 +94,6 @@ def draw_grid():
    for y in range(ROWS):
        for x in range(COLS):
            if grid[y][x] == 0:
-               # Empty: just a faint grid line (no opaque fill)
                stroke_cell(x, y, GRID_LINE_ALPHA)
            else:
                fill_cell(x, y, grid[y][x])
@@ -113,12 +112,10 @@ def draw_ghost(shape, pos):
    for y, row in enumerate(shape):
        for x, cell in enumerate(row):
            if cell:
-               # ghost outline only so it doesn't block the background
                stroke_cell(ghost_pos[0] + x, ghost_pos[1] + y, 0.6)
    ctx.globalAlpha = 1.0
 
 def draw_next_shape():
-   # small translucent label background for readability
    ctx.fillStyle = "rgba(0,0,0,0.35)"
    ctx.fillRect(210, 4, 84, 56)
    ctx.fillStyle = "white"
@@ -222,7 +219,6 @@ def end_game(reason: str):
    msg = "Game Over!" if reason == "gameover" else "Time Up!"
    js.document.getElementById("gameLoading").innerText = f"{msg} Score: {score}"
    js.document.getElementById("restartBtn").style.display = "inline-block"
-   # Tell the web page so it can save to Local + Firebase
    try:
        js.onGameOver(int(score), reason)
    except Exception:
@@ -246,9 +242,7 @@ def game_loop():
            adjust_speed()
            new_piece()
 
-   # --- new: translucent backdrop instead of filling black cells ---
    clear_and_paint_background()
-
    draw_grid()
    draw_ghost(current_shape, shape_pos)
    draw_shape(current_shape, shape_pos, current_color)
@@ -309,6 +303,7 @@ def stop_soft_drop_hold():
 def _end_down_burst():
    global soft_drop_burst
    soft_drop_burst = False
+
 _end_down_burst_proxy = create_proxy(_end_down_burst)
 
 def soft_drop_tap():
@@ -336,8 +331,8 @@ def handle_keyup(event):
 
 # ===== Wire & Start =====
 game_loop_proxy = create_proxy(game_loop)
-keydown_proxy  = create_proxy(handle_keydown)
-keyup_proxy    = create_proxy(handle_keyup)
+keydown_proxy = create_proxy(handle_keydown)
+keyup_proxy = create_proxy(handle_keyup)
 
 js.setInterval(game_loop_proxy, TICK_MS)
 js.document.addEventListener("keydown", keydown_proxy)
@@ -349,6 +344,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
