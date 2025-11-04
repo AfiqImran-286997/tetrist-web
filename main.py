@@ -56,7 +56,7 @@ fall_accum_ms = 0
 
 # Round timer
 start_time = js.Date.now()
-game_duration = 120  # seconds
+game_duration = 90  # seconds
 
 # ===== Transparent Playfield Backdrop =====
 def _is_mobile():
@@ -349,6 +349,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
