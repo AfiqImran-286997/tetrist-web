@@ -192,9 +192,9 @@
            if (isBlack && coversCanvas) {
              const old = this.fillStyle;
              /* desktop alpha */
-             let alpha = 0.18;
+             let alpha = 0.22;
              /* a touch more transparent on phones */
-             if (window.matchMedia('(max-width: 480px)').matches) alpha = 0.12;
+             if (window.matchMedia('(max-width: 480px)').matches) alpha = 0.18;
 
              this.fillStyle = `rgba(0,0,0,${alpha})`;
              origFillRect.call(this, x, y, w, h);
@@ -403,6 +403,7 @@
  </script>
 </body>
 </html>
+
 
 
 
