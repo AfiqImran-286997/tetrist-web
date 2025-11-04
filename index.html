@@ -16,34 +16,35 @@
      -webkit-user-select:none; user-select:none;
    }
 
-   /* === BACKGROUND IMAGE (your uploaded file) === */
+   /* === BACKGROUND IMAGE (spaces are URL-encoded) === */
    body{
      margin:0;
      font-family:Arial, sans-serif;
      color:#fff;
      text-align:center;
 
-     /* use your repo image */
-     background-image:url("LSS tetris background.png");
-     background-size:cover;          /* cover screen */
-     background-position:center;     /* keep centered */
-     background-attachment:fixed;    /* nice feel on desktop */
+     background-color:#000;
+     background-image:url("LSS%20tetris%20background.png?v=3"); /* <-- key fix */
      background-repeat:no-repeat;
+     background-position:center center;
+     background-size:contain;        /* keep full logo visible */
+     background-attachment:fixed;
+     min-height:100vh;
    }
 
    :root { --gap: 12px; }
 
-   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.5); }
+   h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
    /* Semi-transparent cards */
    .card{
      display:inline-block;
      padding:18px;
      border-radius:10px;
-     border:1px solid rgba(255,255,255,.15);
-     background:rgba(0,0,0,.45);           /* <— translucency */
-     backdrop-filter:saturate(120%) blur(1px);
-     -webkit-backdrop-filter:saturate(120%) blur(1px);
+     border:1px solid rgba(255,255,255,.22);
+     background:rgba(0,0,0,.60);              /* translucency for logo to show through */
+     backdrop-filter:saturate(120%) blur(2px);
+     -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
@@ -51,6 +52,7 @@
    .btn.secondary { background:#2f7ded; color:#fff }
    .btn.ghost { background:#333; color:#fff }
    .btn.small { font-size:14px; padding:8px 12px }
+
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px }
    #loading { color:#ff0; font-size:18px; min-height:1.4em }
    #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6)}
@@ -145,10 +147,10 @@
    </section>
  </div>
 
- <!-- Background music -->
+<!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
- <!-- =========================  APP SCRIPT  ========================= -->
+ <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
    /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
@@ -170,21 +172,21 @@
    function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
-   import { initializeApp }   from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+   import { initializeApp }  from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
      query, orderBy, limit, deleteDoc, doc, onSnapshot
    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
-  authDomain: "tetrist-web.firebaseapp.com",
-  projectId: "tetrist-web",
-  storageBucket: "tetrist-web.firebasestorage.app",
-  messagingSenderId: "378076610293",
-  appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
-  measurementId: "G-6JQX0TYB56"
-};
+   const firebaseConfig = {
+     apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
+     authDomain: "tetrist-web.firebaseapp.com",
+     projectId: "tetrist-web",
+     storageBucket: "tetrist-web.firebasestorage.app",
+     messagingSenderId: "378076610293",
+     appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
+     measurementId: "G-6JQX0TYB56"
+   };
 
    const app = initializeApp(firebaseConfig);
    const db  = getFirestore(app);
@@ -194,7 +196,7 @@ const firebaseConfig = {
    const tbody = document.querySelector("#scoresTable tbody");
    const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
-                       .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+               .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
    let unsubscribeScores = null;
    const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
@@ -324,8 +326,8 @@ const firebaseConfig = {
      btnDown.addEventListener("mouseup",   downEnd);
      btnDown.addEventListener("mouseleave",downEnd);
      btnDown.addEventListener("touchstart",(e)=>{ e.preventDefault(); downStart(); }, {passive:false});
-     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();   }, {passive:false});
-     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+     btnDown.addEventListener("touchend",  (e)=>{ e.preventDefault(); downEnd();  }, {passive:false});
+     btnDown.addEventListener("touchcancel",(e)=>{ e.preventDefault(); downEnd(); }, {passive:false});
      btnDown.addEventListener("click", () => { callPy(`soft_drop_tap()`); });
    });
 
@@ -346,6 +348,7 @@ const firebaseConfig = {
  </script>
 </body>
 </html>
+
 
 
 
