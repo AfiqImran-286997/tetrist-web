@@ -16,7 +16,7 @@
      -webkit-user-select:none; user-select:none;
    }
 
-   /* === BACKGROUND IMAGE (spaces are URL-encoded) === */
+   /* === BACKGROUND IMAGE (spaces URL-encoded) === */
    body{
      margin:0;
      font-family:Arial, sans-serif;
@@ -24,10 +24,10 @@
      text-align:center;
 
      background-color:#000;
-     background-image:url("LSS%20tetris%20background.png?v=3"); /* your uploaded filename */
+     background-image:url("LSS%20tetris%20background.png?v=3");
      background-repeat:no-repeat;
      background-position:center center;
-     background-size:contain;      /* keep the full logo visible */
+     background-size:contain;        /* keep full logo visible */
      background-attachment:fixed;
      min-height:100vh;
    }
@@ -36,15 +36,25 @@
 
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
-   /* Semi-transparent cards */
+   /* Cards */
    .card{
      display:inline-block;
      padding:18px;
      border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
-     background:rgba(0,0,0,.60);      /* translucency for logo to show through */
+     background:rgba(0,0,0,.60);     /* nice translucency */
      backdrop-filter:saturate(120%) blur(2px);
      -webkit-backdrop-filter:saturate(120%) blur(2px);
+   }
+
+   /* Make only the GAME panel itself transparent so the logo shows behind it */
+   #gameArea{
+     background: transparent !important;
+     border-color: transparent !important;
+     backdrop-filter: none !important;
+     -webkit-backdrop-filter: none !important;
+     box-shadow: none !important;
+     padding-top: 8px;
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer }
@@ -62,17 +72,12 @@
 
    #gameArea { margin-top:10px }
 
-   /* ===== TRANSPARENT PLAYFIELD ===== */
+   /* Let the canvas be transparent by default; the patch below will also convert
+      any black full-rect paints from the game into semi-transparent instead. */
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
-     background: rgba(0,0,0,0.65);   /* <— key change: see-through black */
-     backdrop-filter: blur(1px);      /* softens the logo under grid for readability */
-   }
-
-   /* On small screens (phones), make it a touch more transparent */
-   @media (max-width: 480px) {
-     canvas { background: rgba(0,0,0,0.55); }
+     background: transparent;
    }
 
    #restartBtn { display:none; margin-top:12px }
@@ -159,12 +164,49 @@
      </div>
    </section>
  </div>
-
- <!-- Background music -->
+<!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
+   /* --------------------------------------------------------------
+      ❶ Patch the 2D context so any full-canvas BLACK background
+         fill becomes semi-transparent on #gameCanvas only.
+         (No changes to main.py needed.)
+      -------------------------------------------------------------- */
+   (function makePlayfieldSemiTransparent(){
+     const origFillRect = CanvasRenderingContext2D.prototype.fillRect;
+     CanvasRenderingContext2D.prototype.fillRect = function(x,y,w,h){
+       try{
+         if (this && this.canvas && this.canvas.id === 'gameCanvas') {
+           const fs = (this.fillStyle ?? '').toString().replace(/\s/g,'').toLowerCase();
+           const isBlack =
+             fs === 'black' || fs === '#000' || fs === '#000000' ||
+             fs === 'rgb(0,0,0)' || fs.startsWith('rgba(0,0,0');
+
+           const cw = this.canvas.width, ch = this.canvas.height;
+           const coversCanvas =
+             Math.abs(x) <= 1 && Math.abs(y) <= 1 &&
+             Math.abs(w - cw) <= 2 && Math.abs(h - ch) <= 2;
+
+           if (isBlack && coversCanvas) {
+             const old = this.fillStyle;
+             /* desktop alpha */
+             let alpha = 0.30;
+             /* a touch more transparent on phones */
+             if (window.matchMedia('(max-width: 480px)').matches) alpha = 0.22;
+
+             this.fillStyle = `rgba(0,0,0,${alpha})`;
+             origFillRect.call(this, x, y, w, h);
+             this.fillStyle = old;
+             return;
+           }
+         }
+       } catch(_) { /* ignore */ }
+       return origFillRect.call(this, x, y, w, h);
+     };
+   })();
+
    /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
