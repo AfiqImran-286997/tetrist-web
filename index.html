@@ -5,7 +5,6 @@
  <meta name="viewport"
        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
  <title>Tetris - Web Version</title>
- <link rel="icon" href="data:;base64,=" />
 
  <!-- Pyodide to run main.py -->
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
@@ -18,25 +17,36 @@
      -webkit-user-select:none; user-select:none;
      -webkit-touch-callout:none;
      margin:0;
-     background:#000; color:#fff;
+     background:#000;
+     color:#fff;
      min-height:100vh;
    }
    * { -webkit-tap-highlight-color: transparent; }
+
    .wrap, #gameArea, canvas, h1, p, table, th, td, button {
-     -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+     -webkit-user-select:none; user-select:none;
+     -webkit-touch-callout:none;
    }
    button, input, select, textarea {
-     touch-action:manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+     touch-action:manipulation;
+     -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
 
-   :root{ --gap:12px; --logoW-desktop:420px; --logoW-mobile:70vmin; }
+   :root{
+     --gap: 12px;
+     --logoW-desktop: 420px;
+     --logoW-mobile: 70vmin;
+   }
+
    body{ text-align:center; font-family:Arial, sans-serif; }
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
 
    .card{
-     display:inline-block; padding:18px; border-radius:10px;
+     display:inline-block;
+     padding:18px;
+     border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
      background:rgba(0,0,0,.60);
      backdrop-filter:saturate(120%) blur(2px);
@@ -45,32 +55,44 @@
 
    /* --- GAME AREA --- */
    #gameArea{
-     position:relative; padding-top:8px;
-     background:transparent !important; border-color:transparent !important;
-     box-shadow:none !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
-     display:inline-block; transform-origin: top center; will-change: transform; margin-top:10px;
+     position:relative;
+     padding-top:8px;
+     background:transparent !important;
+     border-color:transparent !important;
+     box-shadow:none !important;
+     backdrop-filter:none !important;
+     -webkit-backdrop-filter:none !important;
+     display:inline-block;
+     transform-origin: top center;
+     will-change: transform;
+     margin-top:10px;
    }
    /* centered logo behind the game only */
    #gameArea::before{
-     content:""; position:absolute; inset:0; z-index:0;
+     content:"";
+     position:absolute; inset:0; z-index:0;
      background-repeat:no-repeat; background-position:center center;
      background-image:url("LSS%20tetris%20background.png?v=3");
      background-size: var(--logoW-desktop) auto;
      opacity:0.95; pointer-events:none;
    }
-   @media (max-width:600px){ #gameArea::before{ background-size:var(--logoW-mobile) auto; } }
+   @media (max-width:600px){
+     #gameArea::before{ background-size: var(--logoW-mobile) auto; }
+   }
    #gameArea > * { position:relative; z-index:1; }
 
    canvas{
-     border:2px solid rgba(255,255,255,.85); margin-top:12px; background:transparent;
+     border:2px solid rgba(255,255,255,.85);
+     margin-top:12px;
+     background:transparent;
      width:300px; height:600px; /* logical base; container is scaled */
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
-   .btn.primary{ background:#24d15d; color:#000; }
+   .btn.primary { background:#24d15d; color:#000; }
    .btn.secondary{ background:#2f7ded; color:#fff; }
-   .btn.ghost{ background:#333; color:#fff; }
-   .btn.small{ font-size:14px; padding:8px 12px; }
+   .btn.ghost { background:#333; color:#fff; }
+   .btn.small { font-size:14px; padding:8px 12px; }
 
    #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
@@ -80,10 +102,40 @@
 
    #restartBtn{ display:none; margin-top:12px; }
 
-   #controls{ margin:16px 0; display:flex; gap:var(--gap); justify-content:center; flex-wrap:wrap; }
-   #controls button{ font-size:24px; padding:10px 14px; margin:2px; }
-   #controls button.small{ font-size:16px; }
+   /* ====== BIGGER, SINGLE-ROW CONTROLS (Phone + PC) ====== */
+   #controls{
+     margin:18px 0;
+     display:flex;
+     justify-content:center;
+     align-items:center;
+     flex-wrap:nowrap;          /* force single row */
+     gap:18px;
+     width:100%;
+   }
+   #controls button{
+     font-size:36px;            /* big icon */
+     padding:18px 26px;         /* big touch target */
+     margin:4px;
+     border-radius:14px;
+     min-width:80px;
+     min-height:80px;
+     background:#333;
+     color:#fff;
+     border:2px solid #666;
+     box-shadow:0 3px 8px rgba(0,0,0,.5);
+     transition:transform .1s, background .2s;
+   }
+   #controls button:active{ transform:scale(.93); background:#555; }
    #controls button:disabled{ opacity:.5; cursor:not-allowed; }
+
+   @media (max-width:480px){
+     #controls button{
+       font-size:28px;
+       min-width:70px;
+       min-height:70px;
+       padding:16px 20px;
+     }
+   }
 
    table{ border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
    th, td{ border:1px solid rgba(255,255,255,.2); padding:8px 10px; text-align:left; background:rgba(0,0,0,.25); }
@@ -106,7 +158,7 @@
    <!-- ===== MENU ===== -->
    <section id="screen-menu" class="screen active">
      <div class="card">
-       <p id="loading" aria-live="polite">Loading engine…</p>
+       <p id="loading" style="color:#ff0; min-height:1.2em">Loading engine…</p>
        <div style="margin-top:12px">
          <button id="btnPlay" class="btn primary">▶ Play</button>
          <button id="btnScores" class="btn secondary">🏆 Score Board</button>
@@ -122,9 +174,9 @@
        <button id="restartBtn" class="btn ghost">Restart Game</button>
 
        <div id="controls">
-         <button id="btnLeft" disabled aria-label="Move left">◀</button>
+         <button id="btnLeft"  disabled aria-label="Move left">◀</button>
          <button id="btnRight" disabled aria-label="Move right">▶</button>
-         <button id="btnDown" disabled aria-label="Soft drop">▼</button>
+         <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
          <button id="btnRotate" disabled aria-label="Rotate">⟳</button>
        </div>
 
@@ -143,7 +195,11 @@
        <p class="muted">Top 10 highest scores (cloud)</p>
 
        <table id="scoresTable">
-         <thead><tr><th class="sel">Sel</th><th>#</th><th>Name</th><th>Score</th><th>Date</th></tr></thead>
+         <thead>
+           <tr>
+             <th class="sel">Sel</th><th>#</th><th>Name</th><th>Score</th><th>Date</th>
+           </tr>
+         </thead>
          <tbody></tbody>
        </table>
 
@@ -169,7 +225,7 @@
      __lastTouchEnd = now;
    }, {passive:false, capture:true});
 
-   /* ---------------- Fit the whole game panel to the viewport ---------------- */
+   /* Fit the whole game panel to the viewport */
    const gameArea = document.getElementById('gameArea');
    function fitGameToViewport(){
      gameArea.style.transform = 'none';
@@ -234,7 +290,7 @@
      window.addEventListener("pointerdown",kick,{once:true});
    })();
 
-   /* ----------------- Screen switching helpers ----------------- */
+   /* ----------------- Screen switching ----------------- */
    function showScreen(id){
      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
@@ -353,7 +409,7 @@
      }, 50);
    };
 
-  async function preloadEngine(){
+   async function preloadEngine(){
      try{
        document.getElementById("loading").innerText = "Loading engine…";
        pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
@@ -367,58 +423,82 @@
    }
    preloadEngine();
 
-   /* ---------------- Smooth / repeating button controls ---------------- */
-   function makeRepeater(el, fn, delay=150, repeat=55){
-     let startT=null, repT=null, act=false;
-     const stop=()=>{ act=false; if(startT){clearTimeout(startT);startT=null;} if(repT){clearInterval(repT);repT=null;} };
-     const start=e=>{ e.preventDefault(); if(act) return; act=true; fn(); startT=setTimeout(()=>{ repT=setInterval(fn, repeat); }, delay); };
-     el.addEventListener('pointerdown',start,{passive:false});
-     el.addEventListener('pointerup',stop);
-     el.addEventListener('pointerleave',stop);
-     el.addEventListener('pointercancel',stop);
-     el.addEventListener('click',e=>e.preventDefault());
+  /* Smooth / repeating controls */
+   function makeRepeater(element, fireFn, initialDelay=150, repeatEvery=55){
+     let startTimer=null, repeatTimer=null, active=false;
+     const stop = ()=>{
+       active=false;
+       if (startTimer){ clearTimeout(startTimer); startTimer=null; }
+       if (repeatTimer){ clearInterval(repeatTimer); repeatTimer=null; }
+     };
+     const start = (e)=>{
+       e.preventDefault();
+       if (active) return;
+       active=true;
+       fireFn(); /* fire once immediately */
+       startTimer = setTimeout(()=>{ repeatTimer = setInterval(fireFn, repeatEvery); }, initialDelay);
+     };
+     element.addEventListener('pointerdown', start, {passive:false});
+     element.addEventListener('pointerup',   stop);
+     element.addEventListener('pointerleave',stop);
+     element.addEventListener('pointercancel',stop);
+     element.addEventListener('click', e=>e.preventDefault()); /* avoid duplicate click */
    }
 
+   /* UI events */
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
      tryStartMusic();
      showScreen('screen-game');
      if (gameStarted) return;
      gameStarted = true;
 
-     const gl=document.getElementById("gameLoading");
-     gl.innerText="Starting game…";
+     const gl = document.getElementById("gameLoading");
+     gl.innerText = "Starting game…";
      await pyodide.runPythonAsync(gameCode);
-     gl.innerText="Game Loaded!";
+     gl.innerText = "Game Loaded!";
+
      document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
+     const callPy = (c)=> pyodide.runPython(c);
 
-     const callPy = c=>pyodide.runPython(c);
-     document.getElementById("restartBtn").onclick=()=>location.reload();
+     document.getElementById("restartBtn").onclick = () => location.reload();
 
-     makeRepeater(document.getElementById("btnLeft"),   ()=>callPy('on_key({"key":"ArrowLeft"})'), 130, 50);
-     makeRepeater(document.getElementById("btnRight"),  ()=>callPy('on_key({"key":"ArrowRight"})'),130, 50);
-     makeRepeater(document.getElementById("btnRotate"), ()=>callPy('on_key({"key":"ArrowUp"})'),   160, 90);
+     makeRepeater(document.getElementById("btnLeft"),
+       ()=>callPy('on_key({"key":"ArrowLeft"})'), 130, 50);
+     makeRepeater(document.getElementById("btnRight"),
+       ()=>callPy('on_key({"key":"ArrowRight"})'), 130, 50);
+     makeRepeater(document.getElementById("btnRotate"),
+       ()=>callPy('on_key({"key":"ArrowUp"})'), 160, 90);
 
-     const btnDown=document.getElementById("btnDown");
-     const downStart=e=>{e.preventDefault();callPy('start_soft_drop_hold()');};
-     const downEnd  =()=>{callPy('stop_soft_drop_hold()');};
-     btnDown.addEventListener("pointerdown",downStart,{passive:false});
-     btnDown.addEventListener("pointerup",downEnd);
+     const btnDown = document.getElementById("btnDown");
+     const downStart = (e)=>{ e.preventDefault(); callPy('start_soft_drop_hold()'); };
+     const downEnd   = ()=>{ callPy('stop_soft_drop_hold()'); };
+     btnDown.addEventListener("pointerdown", downStart, {passive:false});
+     btnDown.addEventListener("pointerup",   downEnd);
      btnDown.addEventListener("pointerleave",downEnd);
      btnDown.addEventListener("pointercancel",downEnd);
-     btnDown.addEventListener("click",e=>{e.preventDefault();callPy('soft_drop_tap()');});
+     btnDown.addEventListener("click", (e)=>{ e.preventDefault(); callPy('soft_drop_tap()'); });
 
      fitGameToViewport();
    });
 
-   document.getElementById("btnScores").addEventListener("click", ()=>{ attachScoresListener(); showScreen('screen-scores'); });
-   document.getElementById("btnBackFromScores").addEventListener("click", ()=>{ detachScoresListener(); showScreen('screen-menu'); });
+   document.getElementById("btnScores").addEventListener("click", ()=>{
+     attachScoresListener();
+     showScreen('screen-scores');
+   });
+   document.getElementById("btnBackFromScores").addEventListener("click", ()=>{
+     detachScoresListener();
+     showScreen('screen-menu');
+   });
+
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
+
    document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
    window.addEventListener("keydown", tryStartMusic, { once:true });
  </script>
 </body>
 </html>
+
 
 
 
