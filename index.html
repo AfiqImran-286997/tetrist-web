@@ -16,10 +16,11 @@
      -webkit-user-select:none; user-select:none;
    }
 
-   :root {
-     --bgw-desktop: 520px;    /* adjust to make logo smaller/larger */
-     --bgw-mobile: 60vmin;
+   :root{
      --gap: 12px;
+     /* logo size behind game (tweak these) */
+     --logoW-desktop: 420px;
+     --logoW-mobile: 70vmin;
    }
 
    body{
@@ -27,21 +28,13 @@
      font-family:Arial, sans-serif;
      color:#fff;
      text-align:center;
-
-     background-color:#000;
-     background-image:url("LSS%20tetris%20background.png?v=3");
-     background-repeat:no-repeat;
-     background-position:center 10vh;
-     background-size: var(--bgw-desktop) auto;
-     background-attachment:fixed;
+     background:#000;         /* no page-wide logo anymore */
      min-height:100vh;
    }
 
-   @media (max-width:600px){
-     body{ background-size: var(--bgw-mobile) auto; background-position:center 8vh; }
-   }
-
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
+
+   .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
 
    .card{
      display:inline-block;
@@ -53,15 +46,38 @@
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
-   /* Let the game panel be transparent so the logo is visible behind it */
+   /* Game panel should be fully transparent (we'll put the logo behind it) */
    #gameArea{
+     position:relative;
+     padding-top:8px;
      background:transparent !important;
      border-color:transparent !important;
+     box-shadow:none !important;
      backdrop-filter:none !important;
      -webkit-backdrop-filter:none !important;
-     box-shadow:none !important;
-     padding-top:8px;
+     overflow:hidden; /* for the ::before overlay */
+     margin-top:10px;
    }
+
+   /* Centered logo BEHIND the game only */
+   #gameArea::before{
+     content:"";
+     position:absolute;
+     inset:0;                          /* cover the game panel */
+     z-index:0;                        /* keep it behind the canvas */
+     background-repeat:no-repeat;
+     background-position:center center;/* center on the panel (canvas is centered inside) */
+     background-image:url("LSS%20tetris%20background.png?v=3");
+     background-size: var(--logoW-desktop) auto;
+     opacity:0.95;                     /* how strong the logo appears behind */
+     pointer-events:none;
+   }
+   @media (max-width:600px){
+     #gameArea::before{ background-size: var(--logoW-mobile) auto; }
+   }
+
+   /* Lift canvas & buttons above the logo */
+   #gameArea > * { position:relative; z-index:1; }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
    .btn.primary  { background:#24d15d; color:#000; }
@@ -69,19 +85,17 @@
    .btn.ghost    { background:#333; color:#fff; }
    .btn.small    { font-size:14px; padding:8px 12px; }
 
-   .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
    #loading { color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus { font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
    .screen { display:none; }
    .screen.active { display:block; }
 
-   #gameArea { margin-top:10px; }
-
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
-     background:transparent;
+     background:transparent;  /* must be transparent so the logo shows */
+     width:300px; height:600px; /* keep explicit size on mobile */
    }
 
    #restartBtn { display:none; margin-top:12px; }
