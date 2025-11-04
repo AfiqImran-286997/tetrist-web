@@ -424,26 +424,48 @@
    preloadEngine();
 
   /* Smooth / repeating controls */
-   function makeRepeater(element, fireFn, initialDelay=150, repeatEvery=55){
-     let startTimer=null, repeatTimer=null, active=false;
-     const stop = ()=>{
-       active=false;
-       if (startTimer){ clearTimeout(startTimer); startTimer=null; }
-       if (repeatTimer){ clearInterval(repeatTimer); repeatTimer=null; }
-     };
-     const start = (e)=>{
-       e.preventDefault();
-       if (active) return;
-       active=true;
-       fireFn(); /* fire once immediately */
-       startTimer = setTimeout(()=>{ repeatTimer = setInterval(fireFn, repeatEvery); }, initialDelay);
-     };
-     element.addEventListener('pointerdown', start, {passive:false});
-     element.addEventListener('pointerup',   stop);
-     element.addEventListener('pointerleave',stop);
-     element.addEventListener('pointercancel',stop);
-     element.addEventListener('click', e=>e.preventDefault()); /* avoid duplicate click */
-   }
+function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
+ let holding = false;       // finger currently down?
+ let repeating = false;     // repeat phase has started?
+ let delayT = null;         // timeout before repeat
+ let repeatT = null;        // interval for repeat
+
+ const clearTimers = () => {
+   if (delayT)  { clearTimeout(delayT);  delayT  = null; }
+   if (repeatT) { clearInterval(repeatT); repeatT = null; }
+ };
+
+ const onDown = (e) => {
+   e.preventDefault();
+   clearTimers();
+   holding   = true;
+   repeating = false;
+
+   // Do NOT fire immediately. Only start once repeat kicks in.
+   delayT = setTimeout(() => {
+     if (!holding) return;          // released before delay → will be a tap
+     repeating = true;              // we're entering repeat mode
+     fireFn();                      // first step at repeat start
+     repeatT = setInterval(fireFn, repeatEvery);
+   }, initialDelay);
+ };
+
+ const onUp = () => {
+   // If user released before repeat began, treat it as a single tap.
+   const isTap = holding && !repeating;
+   holding = false;
+   clearTimers();
+   if (isTap) fireFn();             // exactly one action for a tap
+ };
+
+ element.addEventListener('pointerdown', onDown, { passive:false });
+ element.addEventListener('pointerup', onUp);
+ element.addEventListener('pointerleave', onUp);
+ element.addEventListener('pointercancel', onUp);
+
+ // Avoid the post-pointer 'click' from causing any extra behavior.
+ element.addEventListener('click', (e) => e.preventDefault());
+}
 
    /* UI events */
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
@@ -498,6 +520,7 @@
  </script>
 </body>
 </html>
+
 
 
 
