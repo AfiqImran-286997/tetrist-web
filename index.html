@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
  <meta charset="UTF-8" />
+ <!-- keep zoom disabled as you already had -->
  <meta name="viewport"
        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
  <title>Tetris - Web Version</title>
@@ -10,9 +11,25 @@
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
  <style>
-   html, body { font-size:16px; touch-action:manipulation; }
+   /* ---------- GLOBAL touch/selection hardening ---------- */
+   html, body {
+     font-size:16px;
+     touch-action:manipulation;             /* prevent double-tap zoom heuristics */
+     -webkit-user-select:none; user-select:none;   /* no text selection */
+     -webkit-touch-callout:none;                   /* no copy/select popup */
+   }
+   /* remove tap highlight glow on iOS */
+   * { -webkit-tap-highlight-color: transparent; }
+
+   /* also lock common containers/elements */
+   .wrap, #gameArea, canvas, h1, p, table, th, td, button {
+     -webkit-user-select:none; user-select:none;
+     -webkit-touch-callout:none;
+   }
+
    button, input, select, textarea {
-     touch-action:manipulation; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
+     touch-action:manipulation;
+     -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
 
@@ -28,7 +45,7 @@
      font-family:Arial, sans-serif;
      color:#fff;
      text-align:center;
-     background:#000;         /* no page-wide logo anymore */
+     background:#000;
      min-height:100vh;
    }
 
@@ -46,7 +63,7 @@
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
 
-   /* Game panel should be fully transparent (we'll put the logo behind it) */
+   /* Game panel – fully transparent; logo sits behind it */
    #gameArea{
      position:relative;
      padding-top:8px;
@@ -55,7 +72,7 @@
      box-shadow:none !important;
      backdrop-filter:none !important;
      -webkit-backdrop-filter:none !important;
-     overflow:hidden; /* for the ::before overlay */
+     overflow:hidden;
      margin-top:10px;
    }
 
@@ -63,13 +80,13 @@
    #gameArea::before{
      content:"";
      position:absolute;
-     inset:0;                          /* cover the game panel */
-     z-index:0;                        /* keep it behind the canvas */
+     inset:0;
+     z-index:0;
      background-repeat:no-repeat;
-     background-position:center center;/* center on the panel (canvas is centered inside) */
+     background-position:center center;
      background-image:url("LSS%20tetris%20background.png?v=3");
      background-size: var(--logoW-desktop) auto;
-     opacity:0.95;                     /* how strong the logo appears behind */
+     opacity:0.95;
      pointer-events:none;
    }
    @media (max-width:600px){
@@ -94,8 +111,8 @@
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
-     background:transparent;  /* must be transparent so the logo shows */
-     width:300px; height:600px; /* keep explicit size on mobile */
+     background:transparent;    /* lets the logo show through */
+     width:300px; height:600px; /* explicit size helps iOS layout */
    }
 
    #restartBtn { display:none; margin-top:12px; }
@@ -187,6 +204,16 @@
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
+   /* ------------- Prevent iOS double-tap zoom (without changing pinch settings) ------------- */
+   let __lastTouchEnd = 0;
+   document.addEventListener('touchend', function(e){
+     const now = Date.now();
+     if (now - __lastTouchEnd <= 300) {
+       e.preventDefault();  // kill double-tap zoom
+     }
+     __lastTouchEnd = now;
+   }, {passive:false, capture:true});
+
    /* ----------------- Music ----------------- */
    const bgm = document.getElementById("bgm");
    const btnMusic = document.getElementById("btnMusic");
