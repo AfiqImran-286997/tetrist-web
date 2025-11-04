@@ -27,7 +27,7 @@
      background-image:url("LSS%20tetris%20background.png?v=3");
      background-repeat:no-repeat;
      background-position:center center;
-     background-size:contain;      /* keep full logo visible */
+     background-size:contain;        /* keep full logo visible */
      background-attachment:fixed;
      min-height:100vh;
    }
@@ -42,7 +42,7 @@
      padding:18px;
      border-radius:10px;
      border:1px solid rgba(255,255,255,.22);
-     background:rgba(0,0,0,.60);   /* nice translucency */
+     background:rgba(0,0,0,.60);     /* nice translucency */
      backdrop-filter:saturate(120%) blur(2px);
      -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
@@ -72,8 +72,8 @@
 
    #gameArea { margin-top:10px }
 
-   /* Let the canvas be transparent; the patch below will convert the game's solid black
-      full-rect background fill into a semi-transparent overlay instead. */
+   /* Let the canvas be transparent by default; the patch below will also convert
+      any black full-rect paints from the game into semi-transparent instead. */
    canvas {
      border:2px solid rgba(255,255,255,.85);
      margin-top:12px;
@@ -169,14 +169,11 @@
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* ----------------------------------------------------------------
-      Make the game's full-canvas BLACK fill semi-transparent *only*
-      on the #gameCanvas. No main.py change required.
-      Tweak these to taste:
-   -----------------------------------------------------------------*/
-   const ALPHA_DESKTOP = 0.70;  // 70% opacity
-   const ALPHA_MOBILE  = 0.70;  // 70% on phones, change to 0.65 if you want lighter
-
+   /* --------------------------------------------------------------
+      ❶ Patch the 2D context so any full-canvas BLACK background
+         fill becomes semi-transparent on #gameCanvas only.
+         (No changes to main.py needed.)
+      -------------------------------------------------------------- */
    (function makePlayfieldSemiTransparent(){
      const origFillRect = CanvasRenderingContext2D.prototype.fillRect;
      CanvasRenderingContext2D.prototype.fillRect = function(x,y,w,h){
@@ -194,14 +191,18 @@
 
            if (isBlack && coversCanvas) {
              const old = this.fillStyle;
-             const alpha = window.matchMedia('(max-width: 480px)').matches ? ALPHA_MOBILE : ALPHA_DESKTOP;
+             /* desktop alpha */
+             let alpha = 0.22;
+             /* a touch more transparent on phones */
+             if (window.matchMedia('(max-width: 480px)').matches) alpha = 0.18;
+
              this.fillStyle = `rgba(0,0,0,${alpha})`;
              origFillRect.call(this, x, y, w, h);
              this.fillStyle = old;
              return;
            }
          }
-       } catch(_) {}
+       } catch(_) { /* ignore */ }
        return origFillRect.call(this, x, y, w, h);
      };
    })();
@@ -279,11 +280,11 @@
      rows.forEach((r,i)=>{
        const tr = document.createElement("tr");
        tr.innerHTML = `
-         <td class="sel"><input type="checkbox" class="selbox cloud" data-docid="\${r.id}"></td>
-         <td>\${i+1}</td>
-         <td>\${escapeHtml(r.name||"Player")}</td>
-         <td>\${r.score}</td>
-         <td>\${fmt(r.createdAt)}</td>`;
+         <td class="sel"><input type="checkbox" class="selbox cloud" data-docid="${r.id}"></td>
+         <td>${i+1}</td>
+         <td>${escapeHtml(r.name||"Player")}</td>
+         <td>${r.score}</td>
+         <td>${fmt(r.createdAt)}</td>`;
        tbody.appendChild(tr);
      });
    }
@@ -294,7 +295,7 @@
      }catch(e){ console.error("addScore:", e); }
    }
 
-   function checkAdmin(label){ const pw = prompt(\`\${label}\nEnter admin password:\`); return pw && pw === ADMIN_PASSWORD; }
+   function checkAdmin(label){ const pw = prompt(`${label}\nEnter admin password:`); return pw && pw === ADMIN_PASSWORD; }
 
    function disableCloudButtons(disable, cache){
      const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
@@ -309,7 +310,7 @@
        const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
        if (!checks.length){ alert("Please tick at least one row."); return; }
        await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
-       alert(\`Deleted \${checks.length} item(s) from cloud.\`);
+       alert(`Deleted ${checks.length} item(s) from cloud.`);
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
@@ -332,7 +333,7 @@
    window.onGameOver = async (score, reason) => {
      const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
-       const name = prompt(\`\${nice}\nYour score: \${score}\nEnter your name for the Score Board:\`) || "Player";
+       const name = prompt(`${nice}\nYour score: ${score}\nEnter your name for the Score Board:`) || "Player";
        await addScoreToCloud(name, score);
        attachScoresListener();
        showScreen('screen-scores');
@@ -402,6 +403,8 @@
  </script>
 </body>
 </html>
+
+
 
 
 
