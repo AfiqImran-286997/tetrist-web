@@ -43,12 +43,12 @@ shape_pos = [COLS // 2 - len(current_shape[0]) // 2, 0]
 score = 0
 game_over = False
 
-# ----- SPEED / TIMER SETTINGS YOU ASKED FOR -----
+# ----- SPEED / TIMER (from your last setup) -----
 BASE_SPEED = 5.0                   # start immediately at x5.0
 speed_multiplier = BASE_SPEED
 
 start_time = js.Date.now()
-game_duration = 30                 # seconds (round lasts 30s)
+game_duration = 30                 # seconds
 
 # Vertical soft drop (Down only)
 soft_drop_hold = False
@@ -72,8 +72,7 @@ GRID_LINE_ALPHA         = 0.28
 GRID_LINE_ALPHA_STRONG  = 0.85
 
 def clear_and_paint_background():
-   """Clear the canvas and paint a single semi-transparent black panel so the
-   body background (logo) is visible through the playfield."""
+   """Clear the canvas and paint a single semi-transparent panel so the logo shows through."""
    ctx.clearRect(0, 0, CW, CH)
    alpha = BG_ALPHA_MOBILE if _is_mobile() else BG_ALPHA_DESKTOP
    ctx.fillStyle = f"rgba(0,0,0,{alpha})"
@@ -103,16 +102,42 @@ def draw_shape(shape, pos, color):
            if cell:
                fill_cell(pos[0] + x, pos[1] + y, color)
 
+def _rgba_from_hex(hex_color: str, alpha: float) -> str:
+   """Convert '#RRGGBB' to 'rgba(r,g,b,alpha)'."""
+   hex_color = hex_color.lstrip('#')
+   r = int(hex_color[0:2], 16)
+   g = int(hex_color[2:4], 16)
+   b = int(hex_color[4:6], 16)
+   return f"rgba({r},{g},{b},{alpha})"
+
 def draw_ghost(shape, pos):
+   """
+   More visible ghost:
+     - semi-transparent fill (tinted with current piece color)
+     - strong white outline so it stands out on any background/logo
+   """
+   # find landing Y
    ghost_pos = pos[:]
    while not check_collision(shape, [ghost_pos[0], ghost_pos[1] + 1]):
        ghost_pos[1] += 1
-   ctx.globalAlpha = 0.3
+
+   # draw filled tinted blocks
+   ctx.save()
+   ctx.globalAlpha = 1.0
+   tint = _rgba_from_hex(current_color, 0.35)  # colored fill
+   ctx.lineWidth = 2.0
    for y, row in enumerate(shape):
        for x, cell in enumerate(row):
            if cell:
-               stroke_cell(ghost_pos[0] + x, ghost_pos[1] + y, 0.6)
-   ctx.globalAlpha = 1.0
+               gx = (ghost_pos[0] + x) * BLOCK_SIZE
+               gy = (ghost_pos[1] + y) * BLOCK_SIZE
+               # fill
+               ctx.fillStyle = tint
+               ctx.fillRect(gx, gy, BLOCK_SIZE, BLOCK_SIZE)
+               # bright outline
+               ctx.strokeStyle = "rgba(255,255,255,0.95)"
+               ctx.strokeRect(gx + 0.5, gy + 0.5, BLOCK_SIZE - 1, BLOCK_SIZE - 1)
+   ctx.restore()
 
 def draw_next_shape():
    ctx.fillStyle = "rgba(0,0,0,0.35)"
@@ -188,9 +213,7 @@ def current_fall_interval_ms():
    return base
 
 def adjust_speed():
-   """
-   Keep at least BASE_SPEED (x5.0) and only increase if score-based speed is higher.
-   """
+   """Keep at least BASE_SPEED (x5.0); only increase when score crosses thresholds."""
    global speed_multiplier
    target = max(BASE_SPEED, 1.0 + (score // 30) * 0.25)
    if target != speed_multiplier:
@@ -226,7 +249,6 @@ def end_game(reason: str):
        js.onGameOver(int(score), reason)
    except Exception:
        pass
-
 # ===== Main loop (steady tick) =====
 def game_loop():
    global shape_pos, fall_accum_ms
@@ -267,6 +289,7 @@ def _norm_key(event):
        if isinstance(event, dict):
            return event.get("key")
        return str(event)
+
 def on_key(event):
    """Public: called from JS for on-screen buttons too."""
    global fall_accum_ms
