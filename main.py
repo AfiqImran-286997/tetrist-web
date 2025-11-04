@@ -65,8 +65,8 @@ def _is_mobile():
    except Exception:
        return False
 
-BG_ALPHA_DESKTOP = 0.45   # 45% black
-BG_ALPHA_MOBILE  = 0.35   # 35% black
+BG_ALPHA_DESKTOP = 0.60   # 60% black
+BG_ALPHA_MOBILE  = 0.60   # 60% black
 
 GRID_LINE_ALPHA  = 0.28   # grid line opacity for empty cells
 GRID_LINE_ALPHA_STRONG = 0.85  # outline for filled cells
@@ -349,6 +349,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
