@@ -5,10 +5,10 @@
  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
  <title>Tetris - Web Version</title>
 
- <!-- Pyodide to run main.py -->
+ <!-- Pyodide -->
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
- <!-- Firebase COMPAT (works without ES modules) -->
+ <!-- Firebase COMPAT (no ES module imports) -->
  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore-compat.js"></script>
 
@@ -29,6 +29,8 @@
      background:rgba(0,0,0,.60);
      backdrop-filter:saturate(120%) blur(2px); -webkit-backdrop-filter:saturate(120%) blur(2px);
    }
+
+   /* GAME AREA (scaled) */
    #gameArea{
      position:relative; padding-top:8px; margin-top:10px;
      background:transparent !important; border-color:transparent !important; box-shadow:none !important;
@@ -53,19 +55,23 @@
    .btn.secondary{ background:#2f7ded; color:#fff; }
    .btn.ghost{ background:#333; color:#fff; }
    .btn.small{ font-size:14px; padding:8px 12px; }
+
    #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
+
    .screen{ display:none; height:100svh; overflow:hidden; }
    .screen.active{ display:block; }
+
    #restartBtn{ display:none; margin-top:12px; }
 
-   /* Fixed controls at bottom */
+   /* FIXED CONTROLS — now OUTSIDE #gameArea so transforms don't affect them */
    #controls{
      position:fixed; left:0; right:0; bottom:0; z-index:999; margin:0;
      padding:10px calc(10px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(10px + env(safe-area-inset-left));
      background:rgba(0,0,0,.40);
      backdrop-filter:saturate(120%) blur(4px); -webkit-backdrop-filter:saturate(120%) blur(4px);
-     display:flex; justify-content:center; align-items:center; gap:18px; flex-wrap:nowrap; width:100%;
+     display:none; /* shown only on Game screen */
+     justify-content:center; align-items:center; gap:18px; flex-wrap:nowrap; width:100%;
    }
    #controls button{
      font-size:36px; padding:18px 26px; margin:4px; border-radius:14px;
@@ -128,13 +134,6 @@
        <p id="gameLoading" style="color:#ff0; min-height:1.2em; margin-top:4px">Loading game, please wait…</p>
        <canvas id="gameCanvas" width="300" height="600"></canvas><br/>
        <button id="restartBtn" class="btn ghost">Restart Game</button>
-
-       <div id="controls" style="display:none">
-         <button id="btnLeft"  disabled aria-label="Move left">◀</button>
-         <button id="btnRight" disabled aria-label="Move right">▶</button>
-         <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
-         <button id="btnRotate" disabled aria-label="Rotate">⟳</button>
-       </div>
      </div>
    </section>
 
@@ -156,32 +155,53 @@
      </div>
    </section>
  </div>
+
+ <!-- FIXED CONTROL BAR: now outside #gameArea (not affected by transforms) -->
+ <div id="controls">
+   <button id="btnLeft"  disabled aria-label="Move left">◀</button>
+   <button id="btnRight" disabled aria-label="Move right">▶</button>
+   <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
+   <button id="btnRotate" disabled aria-label="Rotate">⟳</button>
+ </div>
 <audio id="bgm" src="bgm.mp3?v=1" loop preload="none"></audio>
 
  <script>
-   /* --- tiny helpers / UX --- */
+   /* stop double-tap zoom on iOS */
    var __lastTouchEnd=0;
-   document.addEventListener('touchend',function(e){var n=Date.now();if(n-__lastTouchEnd<=300)e.preventDefault();__lastTouchEnd=n;},{passive:false,capture:true});
+   document.addEventListener('touchend',function(e){var now=Date.now();if(now-__lastTouchEnd<=300)e.preventDefault();__lastTouchEnd=now;},{passive:false,capture:true});
 
    var gameArea=document.getElementById('gameArea');
-   function gameScreenIsActive(){return document.getElementById('screen-game').classList.contains('active');}
+   var screenGame=document.getElementById('screen-game');
+   var controlsBar=document.getElementById('controls');
+
+   function gameScreenIsActive(){return screenGame.classList.contains('active');}
+
    function fitGameToViewport(){
      gameArea.style.transform='none';
-     var panelW=gameArea.scrollWidth, panelH=gameArea.scrollHeight;
-     var vw=Math.max(320,window.innerWidth)-8, vh=Math.max(320,window.innerHeight)-8;
-     var controls=document.getElementById('controls'), ch=0;
+
+     var panelW=gameArea.scrollWidth;
+     var panelH=gameArea.scrollHeight;
+
+     var vw=Math.max(320,window.innerWidth)-8;
+     var vh=Math.max(320,window.innerHeight)-8;
+
+     // Reserve space for the fixed controls by padding the GAME SCREEN (not the scaled panel)
+     var ch=0;
      if(gameScreenIsActive()){
-       ch=((controls&&controls.offsetHeight)?controls.offsetHeight:0)+12;
-       vh=Math.max(200,vh-ch);
-       gameArea.style.paddingBottom=(ch+8)+'px';
-     }else{ gameArea.style.paddingBottom='8px'; }
-     var scale=Math.min(1,vw/panelW,vh/panelH);
+       ch=(controlsBar && controlsBar.offsetHeight ? controlsBar.offsetHeight : 0) + 12;
+       vh=Math.max(200, vh - ch);
+       screenGame.style.paddingBottom=(ch+8)+'px';
+     }else{
+       screenGame.style.paddingBottom='0px';
+     }
+
+     var scale=Math.min(1, vw/panelW, vh/panelH);
      gameArea.style.transform='scale('+scale+')';
    }
    window.addEventListener('resize',fitGameToViewport);
    window.addEventListener('orientationchange',fitGameToViewport);
 
-   /* --- Music --- */
+   /* Music controls (same as before) */
    var bgm=document.getElementById("bgm"), btnMusic=document.getElementById("btnMusic"), audioStatus=document.getElementById("audioStatus"), ac;
    function ensureAudioContext(){try{var C=window.AudioContext||window.webkitAudioContext;if(C&&(!ac||ac.state==="closed"))ac=new C();if(ac&&ac.state!=="running")ac.resume().catch(function(){});}catch(e){}}
    function setStatus(m){audioStatus.textContent=m||"";}
@@ -205,16 +225,17 @@
    bgm.addEventListener("error",function(){setStatus("Music: ERROR loading bg.mp3");});
    (function(){if(localStorage.getItem("musicMuted")==="true")bgm.muted=true;updateMusicUI();var kick=function(){tryStartMusic();window.removeEventListener("pointerdown",kick);};window.addEventListener("pointerdown",kick,{once:true});})();
 
-   /* --- Screens --- */
+   /* Screen switching */
    function showScreen(id){
      var screens=document.querySelectorAll('.screen'); for(var i=0;i<screens.length;i++){screens[i].classList.remove('active');}
      document.getElementById(id).classList.add('active');
-     var controls=document.getElementById('controls');
-     controls.style.display=(id==='screen-game')?'flex':'none';
-     if(id==='screen-game'){setTimeout(fitGameToViewport,0);}
+
+     // show/hide controls bar and refit
+     controlsBar.style.display=(id==='screen-game')?'flex':'none';
+     if(id==='screen-game'){ setTimeout(fitGameToViewport,0); }
    }
 
-   /* --- Player name --- */
+   /* Player name */
    var nameInput=document.getElementById('nameInput'), playerNameLabel=document.getElementById('playerNameLabel');
    function getPlayerName(){var v=localStorage.getItem('playerName');v=v?(''+v).trim():'';return v||"";}
    function setPlayerName(name){var clean=(name||"").replace(/^\s+|\s+$/g,'').slice(0,24);if(!clean)return false;localStorage.setItem('playerName',clean);playerNameLabel.textContent=clean;return true;}
@@ -223,7 +244,7 @@
    nameInput.addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('btnSaveName').click();});
    document.getElementById('btnChangeName').addEventListener('click',function(){nameInput.value=getPlayerName();showScreen('screen-name');setTimeout(function(){nameInput.select();},0);});
 
-   /* --- Firebase compat setup --- */
+   /* Firebase compat */
    var firebaseConfig={
      apiKey:"AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
      authDomain:"tetrist-web.firebaseapp.com",
@@ -244,13 +265,11 @@
 
    var unsubscribeScores=null;
    var topQuery=db.collection("scores").orderBy("score","desc").limit(10);
-
    function attachScoresListener(){
      if(unsubscribeScores) return;
      unsubscribeScores = topQuery.onSnapshot(function(snap){
        var rows=[]; snap.forEach(function(d){var data=d.data(); data.id=d.id; rows.push(data);});
-       renderRows(rows);
-       cloudStatusEl.innerHTML='Cloud: <span style="color:#24d15d">online</span>';
+       renderRows(rows); cloudStatusEl.innerHTML='Cloud: <span style="color:#24d15d">online</span>';
      }, function(err){
        console.error("scores listener:",err);
        cloudStatusEl.innerHTML='Cloud: <span style="color:#f66">offline / error</span>';
@@ -258,10 +277,8 @@
      });
    }
    function detachScoresListener(){ if(unsubscribeScores){unsubscribeScores(); unsubscribeScores=null;} }
-
    function renderRows(rows){
-     tbody.innerHTML="";
-     if(!rows.length){ tbody.innerHTML='<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>'; return; }
+     tbody.innerHTML=""; if(!rows.length){ tbody.innerHTML='<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>'; return; }
      for(var i=0;i<rows.length;i++){
        var r=rows[i], tr=document.createElement("tr");
        tr.innerHTML='<td class="sel"><input type="checkbox" class="selbox cloud" data-docid="'+r.id+'"></td>'+
@@ -270,7 +287,6 @@
        tbody.appendChild(tr);
      }
    }
-
    function addScoreToCloud(score){
      var name=getPlayerName()||"Player";
      return db.collection("scores").add({
@@ -306,7 +322,7 @@
        .finally(function(){disableCloudButtons(false,btns);});
    }
 
-   /* --- Pyodide + game --- */
+   /* Pyodide + game */
    var pyodide, gameCode, gameStarted=false;
    window.onGameOver=function(score){ setTimeout(function(){ addScoreToCloud(score).then(function(){ attachScoresListener(); showScreen('screen-scores'); }); },50); };
 
