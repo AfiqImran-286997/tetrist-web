@@ -21,7 +21,7 @@
      color:#fff;
      min-height:100vh;
 
-     /* NEW: fill visible viewport & disable scroll */
+     /* Fill visible viewport & disable scroll on phones */
      height:100svh;
      overflow:hidden;
    }
@@ -59,7 +59,7 @@
 
    /* --- GAME AREA --- */
    #gameArea{
-     position:relative;
+     position:relative;                 /* needed for top-left Back button */
      padding-top:8px;
      background:transparent !important;
      border-color:transparent !important;
@@ -85,11 +85,19 @@
    }
    #gameArea > * { position:relative; z-index:1; }
 
+   /* Always-visible Back button (not covered by controls) */
+   .backtop{
+     position:absolute;
+     top:8px; left:8px;
+     z-index:2;
+     padding:6px 10px;
+   }
+
    canvas{
      border:2px solid rgba(255,255,255,.85);
-     margin-top:12px;
+     margin-top:36px;                   /* leave room under Back button */
      background:transparent;
-     width:300px; height:600px; /* logical base; container is scaled */
+     width:300px; height:600px;         /* logical base; container is scaled */
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
@@ -101,14 +109,13 @@
    #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   /* NEW: screens fill viewport to avoid pushing content */
+   /* Screens fill viewport to avoid pushing content */
    .screen{ display:none; height:100svh; overflow:hidden; }
    .screen.active{ display:block; }
 
    #restartBtn{ display:none; margin-top:12px; }
 
-   /* ====== BIGGER, SINGLE-ROW CONTROLS (Phone + PC) ====== */
-   /* NEW: fixed bottom bar so buttons are always visible */
+   /* ====== BIGGER, SINGLE-ROW CONTROLS (fixed at bottom) ====== */
    #controls{
      position:fixed;
      left:0; right:0; bottom:0;
@@ -217,19 +224,19 @@
    <!-- ===== GAME ===== -->
    <section id="screen-game" class="screen">
      <div id="gameArea" class="card">
-       <p id="gameLoading" style="color:#ff0; min-height:1.2em">Loading game, please wait…</p>
+       <!-- Always-visible Back button -->
+       <button id="btnBackFromGame" class="btn small ghost backtop">← Back to Menu</button>
+
+       <p id="gameLoading" style="color:#ff0; min-height:1.2em; margin-top:4px">Loading game, please wait…</p>
        <canvas id="gameCanvas" width="300" height="600"></canvas><br />
        <button id="restartBtn" class="btn ghost">Restart Game</button>
 
+       <!-- Fixed controls (shown only during gameplay) -->
        <div id="controls" style="display:none">
          <button id="btnLeft"  disabled aria-label="Move left">◀</button>
          <button id="btnRight" disabled aria-label="Move right">▶</button>
          <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
          <button id="btnRotate" disabled aria-label="Rotate">⟳</button>
-       </div>
-
-       <div style="margin-top:6px">
-         <button id="btnBackFromGame" class="btn small ghost">← Back to Menu</button>
        </div>
      </div>
    </section>
@@ -260,7 +267,7 @@
    </section>
  </div>
 <!-- Background music -->
- <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
+ <audio id="bgm" src="bgm.mp3?v=1" loop preload="none"></audio>
 
  <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
@@ -402,7 +409,8 @@
      showScreen('screen-name');
      setTimeout(()=>nameInput.select(), 0);
    });
-/* ----------------- Firebase (CDN v11 modular) ----------------- */
+
+   /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
@@ -424,7 +432,7 @@
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
-   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;","&gt;":">&gt;","\"":"&quot;","'":"&#39;"}[c]));
+   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
      .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
@@ -531,8 +539,7 @@
      }
    }
    preloadEngine();
-
-   /* Smooth / repeating controls */
+/* Smooth / repeating controls */
    function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
      let holding=false, repeating=false, delayT=null, repeatT=null;
      const clearTimers = () => {
@@ -608,7 +615,7 @@
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
 
-   document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
+   document.getElementById("btnBackFromGame").addEventListener("click", ()=> showScreen('screen-menu'));
    window.addEventListener("keydown", tryStartMusic, { once:true });
 
    // On boot: require a name before showing the menu
