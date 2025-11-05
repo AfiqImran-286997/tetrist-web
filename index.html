@@ -10,7 +10,6 @@
  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
 
  <style>
-   /* ---------- GLOBAL touch/selection hardening ---------- */
    html, body {
      font-size:16px;
      touch-action:manipulation;
@@ -20,10 +19,8 @@
      background:#000;
      color:#fff;
      min-height:100vh;
-
-     /* Fill visible viewport & disable scroll on phones */
-     height:100svh;
-     overflow:hidden;
+     height:100svh;            /* use visual viewport height on mobile */
+     overflow:hidden;          /* no page scroll */
    }
    * { -webkit-tap-highlight-color: transparent; }
 
@@ -36,13 +33,10 @@
      -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;
      -webkit-user-select:none; user-select:none;
    }
-
    :root{
-     --gap: 12px;
      --logoW-desktop: 420px;
      --logoW-mobile: 70vmin;
    }
-
    body{ text-align:center; font-family:Arial, sans-serif; }
    .wrap { max-width:900px; margin:0 auto; padding:10px 16px; }
    h1 { margin:20px 0; text-shadow:0 2px 6px rgba(0,0,0,.6); }
@@ -59,19 +53,16 @@
 
    /* --- GAME AREA --- */
    #gameArea{
-     position:relative;                 /* needed for top-left Back button */
-     padding-top:8px;                   /* default; bottom is set dynamically in JS */
+     position:relative;      /* for the Back button */
+     padding-top:8px;        /* bottom set dynamically by JS */
      background:transparent !important;
      border-color:transparent !important;
      box-shadow:none !important;
-     backdrop-filter:none !important;
-     -webkit-backdrop-filter:none !important;
      display:inline-block;
      transform-origin: top center;
      will-change: transform;
      margin-top:10px;
    }
-   /* centered logo behind the game only */
    #gameArea::before{
      content:"";
      position:absolute; inset:0; z-index:0;
@@ -85,19 +76,15 @@
    }
    #gameArea > * { position:relative; z-index:1; }
 
-   /* Always-visible Back button (not covered by controls) */
    .backtop{
-     position:absolute;
-     top:8px; left:8px;
-     z-index:2;
-     padding:6px 10px;
+     position:absolute; top:8px; left:8px; z-index:2; padding:6px 10px;
    }
 
    canvas{
      border:2px solid rgba(255,255,255,.85);
-     margin-top:36px;                   /* leave room under Back button */
+     margin-top:36px;  /* room for Back button */
      background:transparent;
-     width:300px; height:600px;         /* logical base; container is scaled */
+     width:300px; height:600px;   /* logical; container scales */
    }
 
    .btn { padding:12px 20px; font-size:18px; border:0; border-radius:6px; margin:6px 8px; cursor:pointer; }
@@ -109,16 +96,14 @@
    #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   /* Screens fill viewport to avoid pushing content */
    .screen{ display:none; height:100svh; overflow:hidden; }
    .screen.active{ display:block; }
 
    #restartBtn{ display:none; margin-top:12px; }
 
-   /* ====== BIGGER, SINGLE-ROW CONTROLS (fixed at bottom) ====== */
+   /* Fixed controls bar */
    #controls{
-     position:fixed;
-     left:0; right:0; bottom:0;
+     position:fixed; left:0; right:0; bottom:0;
      padding:
        10px
        calc(10px + env(safe-area-inset-right))
@@ -127,26 +112,13 @@
      background:rgba(0,0,0,.40);
      backdrop-filter:saturate(120%) blur(4px);
      -webkit-backdrop-filter:saturate(120%) blur(4px);
-     z-index:999;
-     margin:0;
-
-     display:flex;
-     justify-content:center;
-     align-items:center;
-     flex-wrap:nowrap;
-     gap:18px;
-     width:100%;
+     z-index:999; margin:0;
+     display:flex; justify-content:center; align-items:center; flex-wrap:nowrap; gap:18px; width:100%;
    }
    #controls button{
-     font-size:36px;
-     padding:18px 26px;
-     margin:4px;
-     border-radius:14px;
-     min-width:80px;
-     min-height:80px;
-     background:#333;
-     color:#fff;
-     border:2px solid #666;
+     font-size:36px; padding:18px 26px; margin:4px;
+     border-radius:14px; min-width:80px; min-height:80px;
+     background:#333; color:#fff; border:2px solid #666;
      box-shadow:0 3px 8px rgba(0,0,0,.5);
      transition:transform .1s, background .2s;
    }
@@ -154,11 +126,7 @@
    #controls button:disabled{ opacity:.5; cursor:not-allowed; }
 
    @media (max-height:640px){
-     #controls button{
-       font-size:24px;
-       min-width:64px; min-height:64px;
-       padding:12px 16px;
-     }
+     #controls button{ font-size:24px; min-width:64px; min-height:64px; padding:12px 16px; }
    }
 
    table{ border-collapse:collapse; margin:10px auto; width:96%; max-width:620px; }
@@ -168,14 +136,10 @@
    th.sel, td.sel{ width:52px; text-align:center }
    .muted{ opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
 
-   /* ---- Name screen styling ---- */
    #nameInput{
      width:260px; max-width:80vw;
-     padding:10px 12px;
-     border-radius:8px; border:1px solid #666;
-     background:#111; color:#fff;
-     font-size:16px;
-     text-align:center;
+     padding:10px 12px; border-radius:8px; border:1px solid #666;
+     background:#111; color:#fff; font-size:16px; text-align:center;
    }
    #playerBadge{ font-size:13px; opacity:.9; margin-top:6px; }
  </style>
@@ -184,30 +148,23 @@
  <div class="wrap">
    <h1>Tetris - Web Version</h1>
 
-   <!-- Music control -->
    <div class="card" style="margin-bottom:14px">
      <button id="btnMusic" class="btn small ghost" aria-pressed="false" title="Toggle music">🔇 Music</button>
      <div id="audioStatus"></div>
    </div>
 
-   <!-- ===== NAME (FIRST RUN) ===== -->
+   <!-- NAME -->
    <section id="screen-name" class="screen active">
      <div class="card" style="min-width:340px">
        <h2>👤 Player Name</h2>
-       <p class="muted" style="max-width:520px">
-         Enter your name once. We’ll remember it and use it automatically on the Score Board.
-       </p>
-       <div style="margin:10px 0 4px">
-         <input id="nameInput" maxlength="24" placeholder="Enter name (e.g., Afiq)" />
-       </div>
-       <div>
-         <button id="btnSaveName" class="btn primary">Save & Continue</button>
-       </div>
+       <p class="muted" style="max-width:520px">Enter your name once. We’ll remember it and use it automatically on the Score Board.</p>
+       <div style="margin:10px 0 4px"><input id="nameInput" maxlength="24" placeholder="Enter name (e.g., Afiq)" /></div>
+       <div><button id="btnSaveName" class="btn primary">Save & Continue</button></div>
        <p class="muted" style="margin-top:8px">You can change this anytime from the menu.</p>
      </div>
    </section>
 
-   <!-- ===== MENU ===== -->
+   <!-- MENU -->
    <section id="screen-menu" class="screen">
      <div class="card">
        <p id="playerBadge">Player: <strong id="playerNameLabel">—</strong>
@@ -221,17 +178,14 @@
      </div>
    </section>
 
-   <!-- ===== GAME ===== -->
+   <!-- GAME -->
    <section id="screen-game" class="screen">
      <div id="gameArea" class="card">
-       <!-- Always-visible Back button -->
        <button id="btnBackFromGame" class="btn small ghost backtop">← Back to Menu</button>
-
        <p id="gameLoading" style="color:#ff0; min-height:1.2em; margin-top:4px">Loading game, please wait…</p>
        <canvas id="gameCanvas" width="300" height="600"></canvas><br />
        <button id="restartBtn" class="btn ghost">Restart Game</button>
 
-       <!-- Fixed controls (shown only during gameplay) -->
        <div id="controls" style="display:none">
          <button id="btnLeft"  disabled aria-label="Move left">◀</button>
          <button id="btnRight" disabled aria-label="Move right">▶</button>
@@ -241,19 +195,16 @@
      </div>
    </section>
 
-   <!-- ===== SCOREBOARD ===== -->
+   <!-- SCORES -->
    <section id="screen-scores" class="screen">
      <div class="card" style="min-width:340px">
        <h2>🏆 Score Board</h2>
-
        <div class="muted" id="cloudStatus">Cloud: <em>checking…</em></div>
        <p class="muted">Top 10 highest scores (cloud)</p>
 
        <table id="scoresTable">
          <thead>
-           <tr>
-             <th class="sel">Sel</th><th>#</th><th>Name</th><th>Score</th><th>Date</th>
-           </tr>
+           <tr><th class="sel">Sel</th><th>#</th><th>Name</th><th>Score</th><th>Date</th></tr>
          </thead>
          <tbody></tbody>
        </table>
@@ -266,21 +217,18 @@
      </div>
    </section>
  </div>
-<!-- Background music -->
- <audio id="bgm" src="bgm.mp3?v=1" loop preload="none"></audio>
+<audio id="bgm" src="bgm.mp3?v=1" loop preload="none"></audio>
 
- <!-- ========================= APP SCRIPT ========================= -->
  <script type="module">
-   /* Kill double-tap zoom (extra help for iOS) */
-   let __lastTouchEnd = 0;
+   /* stop double-tap zoom on iOS */
+   var __lastTouchEnd = 0;
    document.addEventListener('touchend', function(e){
-     const now = Date.now();
+     var now = Date.now();
      if (now - __lastTouchEnd <= 300) e.preventDefault();
      __lastTouchEnd = now;
    }, {passive:false, capture:true});
 
-   /* Fit the game panel to the viewport and reserve space for fixed controls */
-   const gameArea = document.getElementById('gameArea');
+   var gameArea = document.getElementById('gameArea');
 
    function gameScreenIsActive(){
      return document.getElementById('screen-game').classList.contains('active');
@@ -289,59 +237,54 @@
    function fitGameToViewport(){
      gameArea.style.transform = 'none';
 
-     const panelW = gameArea.scrollWidth;
-     const panelH = gameArea.scrollHeight;
+     var panelW = gameArea.scrollWidth;
+     var panelH = gameArea.scrollHeight;
 
-     const vw = Math.max(320, window.innerWidth) - 8;
-     let  vh = Math.max(320, window.innerHeight) - 8;
+     var vw = Math.max(320, window.innerWidth) - 8;
+     var vh = Math.max(320, window.innerHeight) - 8;
 
-     // Reserve space for the fixed control bar, and also add equal bottom padding
-     let ch = 0;
+     var controls = document.getElementById('controls');
+     var ch = 0;
      if (gameScreenIsActive()){
-       const controls = document.getElementById('controls');
-       ch = (controls?.offsetHeight || 0) + 12;     // a bit of breathing room
+       ch = ((controls && controls.offsetHeight) ? controls.offsetHeight : 0) + 12;
        vh = Math.max(200, vh - ch);
-       gameArea.style.paddingBottom = (ch + 😎 + 'px';  // << keeps canvas fully visible
+       gameArea.style.paddingBottom = (ch + 😎 + 'px';
      } else {
        gameArea.style.paddingBottom = '8px';
      }
 
-     const scale = Math.min(1, vw/panelW, vh/panelH);
-     gameArea.style.transform = `scale(${scale})`;
+     var scale = Math.min(1, vw/panelW, vh/panelH);
+     gameArea.style.transform = 'scale(' + scale + ')';
    }
-
    window.addEventListener('resize', fitGameToViewport);
    window.addEventListener('orientationchange', fitGameToViewport);
 
-   /* ----------------- Music ----------------- */
-   const bgm = document.getElementById("bgm");
-   const btnMusic = document.getElementById("btnMusic");
-   const audioStatus = document.getElementById("audioStatus");
-   let ac;
+   /* -------- Music -------- */
+   var bgm = document.getElementById("bgm");
+   var btnMusic = document.getElementById("btnMusic");
+   var audioStatus = document.getElementById("audioStatus");
+   var ac;
    function ensureAudioContext(){
      try{
-       const C = window.AudioContext || window.webkitAudioContext;
+       var C = window.AudioContext || window.webkitAudioContext;
        if (C && (!ac || ac.state === "closed")) ac = new C();
-       if (ac && ac.state !== "running") ac.resume().catch(()=>{});
-     }catch{}
+       if (ac && ac.state !== "running") ac.resume().catch(function(){});
+     }catch(e){}
    }
    function setStatus(msg){ audioStatus.textContent = msg || ""; }
    function musicIsPlaying(){ return !bgm.paused && !bgm.ended && bgm.currentTime>0; }
    function updateMusicUI(){
-     const m = bgm.muted || bgm.volume===0 || bgm.paused;
+     var m = bgm.muted || bgm.volume===0 || bgm.paused;
      btnMusic.textContent = m ? "🔇 Music" : "🔊 Music";
      btnMusic.setAttribute("aria-pressed", (!m).toString());
    }
-   async function tryStartMusic(){
+   function tryStartMusic(){
      ensureAudioContext();
-     const pref = localStorage.getItem("musicMuted");
+     var pref = localStorage.getItem("musicMuted");
      if (pref === "true"){ updateMusicUI(); setStatus("Music: muted (saved)"); return; }
-     try{
-       bgm.muted=false; bgm.volume=0.6; await bgm.play();
-       updateMusicUI(); setStatus("Music: playing");
-     }catch{
-       updateMusicUI(); setStatus("Music: press Music to start (autoplay)");
-     }
+     bgm.muted=false; bgm.volume=0.6;
+     bgm.play().then(function(){ updateMusicUI(); setStatus("Music: playing"); })
+       .catch(function(){ updateMusicUI(); setStatus("Music: press Music to start (autoplay)"); });
    }
    function toggleMusic(){
      ensureAudioContext();
@@ -349,81 +292,83 @@
        bgm.pause(); bgm.muted=true; localStorage.setItem("musicMuted","true"); setStatus("Music: paused");
      } else {
        bgm.muted=false; bgm.volume=0.6;
-       bgm.play().then(()=>setStatus("Music: playing")).catch(()=>setStatus("Music: couldn't start"));
+       bgm.play().then(function(){ setStatus("Music: playing"); })
+         .catch(function(){ setStatus("Music: couldn't start"); });
        localStorage.setItem("musicMuted","false");
      }
      updateMusicUI();
    }
    btnMusic.addEventListener("click", toggleMusic);
-   bgm.addEventListener("canplaythrough", ()=>setStatus("Music: loaded (ready)"));
-   bgm.addEventListener("error", ()=>setStatus("Music: ERROR loading bg.mp3"));
+   bgm.addEventListener("canplaythrough", function(){ setStatus("Music: loaded (ready)"); });
+   bgm.addEventListener("error", function(){ setStatus("Music: ERROR loading bg.mp3"); });
    (function initMusicPref(){
      if (localStorage.getItem("musicMuted")==="true") bgm.muted=true;
      updateMusicUI();
-     const kick=()=>{tryStartMusic(); window.removeEventListener("pointerdown",kick);};
+     var kick=function(){ tryStartMusic(); window.removeEventListener("pointerdown",kick); };
      window.addEventListener("pointerdown",kick,{once:true});
    })();
 
-   /* ----------------- Screen switching ----------------- */
+   /* -------- Screens -------- */
    function showScreen(id){
-     document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+     var screens = document.querySelectorAll('.screen');
+     for (var i=0;i<screens.length;i++){ screens[i].classList.remove('active'); }
      document.getElementById(id).classList.add('active');
 
-     // Show controls only on game screen
-     const controls = document.getElementById('controls');
+     var controls = document.getElementById('controls');
      controls.style.display = (id === 'screen-game') ? 'flex' : 'none';
 
      if (id === 'screen-game'){ setTimeout(fitGameToViewport, 0); }
    }
 
-   /* ----------------- Player name helpers ----------------- */
-   const nameInput = document.getElementById('nameInput');
-   const playerNameLabel = document.getElementById('playerNameLabel');
+   /* -------- Player name -------- */
+   var nameInput = document.getElementById('nameInput');
+   var playerNameLabel = document.getElementById('playerNameLabel');
 
    function getPlayerName(){
-     const s = (localStorage.getItem('playerName')||'').trim();
-     return s || "";
+     var v = localStorage.getItem('playerName');
+     v = v ? (''+v).trim() : '';
+     return v || "";
    }
    function setPlayerName(name){
-     const clean = (name||"").trim().slice(0,24);
+     var clean = (name || "").replace(/^\s+|\s+$/g,'').slice(0,24);
      if (!clean) return false;
      localStorage.setItem('playerName', clean);
      playerNameLabel.textContent = clean;
      return true;
    }
    function requireNameFlowIfNeeded(){
-     const saved = getPlayerName();
+     var saved = getPlayerName();
      if (saved){
        playerNameLabel.textContent = saved;
        showScreen('screen-menu');
      }else{
        showScreen('screen-name');
-       setTimeout(()=>nameInput.focus(), 0);
+       setTimeout(function(){ nameInput.focus(); }, 0);
      }
    }
 
-   document.getElementById('btnSaveName').addEventListener('click', ()=>{
-     const ok = setPlayerName(nameInput.value);
+   document.getElementById('btnSaveName').addEventListener('click', function(){
+     var ok = setPlayerName(nameInput.value);
      if (!ok){ alert('Please enter a name.'); return; }
      showScreen('screen-menu');
    });
-   nameInput.addEventListener('keydown', (e)=>{
+   nameInput.addEventListener('keydown', function(e){
      if (e.key === 'Enter') document.getElementById('btnSaveName').click();
    });
-   document.getElementById('btnChangeName').addEventListener('click', ()=>{
+   document.getElementById('btnChangeName').addEventListener('click', function(){
      nameInput.value = getPlayerName();
      showScreen('screen-name');
-     setTimeout(()=>nameInput.select(), 0);
+     setTimeout(function(){ nameInput.select(); }, 0);
    });
 
-   /* ----------------- Firebase (CDN v11 modular) ----------------- */
+   /* -------- Firebase (modular) -------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
      query, orderBy, limit, deleteDoc, doc, onSnapshot
    } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
-   const firebaseConfig = {
+   var firebaseConfig = {
      apiKey: "AIzaSyCwtCR3h3Y-KnNFGVNzMFerkapkKgBrqus",
      authDomain: "tetrist-web.firebaseapp.com",
      projectId: "tetrist-web",
@@ -432,27 +377,43 @@
      appId: "1:378076610293:web:22ad48c19e7af8b00ccfbc",
      measurementId: "G-6JQX0TYB56"
    };
-const app = initializeApp(firebaseConfig);
-   const db  = getFirestore(app);
+   var app = initializeApp(firebaseConfig);
+   var db  = getFirestore(app);
 
-   const ADMIN_PASSWORD = "LSSIsTheBest";
-   const cloudStatusEl = document.getElementById("cloudStatus");
-   const tbody = document.querySelector("#scoresTable tbody");
-   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
-   const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
-     .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+   var ADMIN_PASSWORD = "LSSIsTheBest";
+   var cloudStatusEl = document.getElementById("cloudStatus");
+   var tbody = document.querySelector("#scoresTable tbody");
 
-   let unsubscribeScores = null;
-   const topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
+   function escapeHtml(s){
+     s = (s===null || s===undefined) ? "" : String(s);
+     return s.replace(/[&<>\"']/g, function(c){
+       if (c==="&") return "&amp;";
+       if (c==="<") return "&lt;";
+       if (c===">") return "&gt;";
+       if (c==="\"") return "&quot;";
+       return "&#39;";
+     });
+   }
+   function fmt(ts){
+     var d = (ts && ts.seconds) ? new Date(ts.seconds*1000) : new Date();
+     return d.toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+   }
+
+   var unsubscribeScores = null;
+   var topQuery = query(collection(db,"scores"), orderBy("score","desc"), limit(10));
 
    function attachScoresListener(){
      if (unsubscribeScores) return;
-     unsubscribeScores = onSnapshot(topQuery, (snap)=>{
-       const rows = [];
-       snap.forEach(d => rows.push({ id:d.id, ...d.data() }));
+     unsubscribeScores = onSnapshot(topQuery, function(snap){
+       var rows = [];
+       snap.forEach(function(d){
+         var data = d.data();
+         data.id = d.id;
+         rows.push(data);
+       });
        renderRows(rows);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#24d15d">online</span>';
-     }, (err)=>{
+     }, function(err){
        console.error("scores listener:", err);
        cloudStatusEl.innerHTML = 'Cloud: <span style="color:#f66">offline / error</span>';
        tbody.innerHTML = '<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">Could not load scores (offline?)</td></tr>';
@@ -466,8 +427,9 @@ const app = initializeApp(firebaseConfig);
        tbody.innerHTML = '<tr><td class="sel"></td><td colspan="4" style="text-align:center;opacity:.7">No scores yet</td></tr>';
        return;
      }
-     rows.forEach((r,i)=>{
-       const tr = document.createElement("tr");
+     for (var i=0;i<rows.length;i++){
+       var r = rows[i];
+       var tr = document.createElement("tr");
        tr.innerHTML =
          '<td class="sel"><input type="checkbox" class="selbox cloud" data-docid="'+r.id+'"></td>'+
          '<td>'+(i+1)+'</td>'+
@@ -475,34 +437,41 @@ const app = initializeApp(firebaseConfig);
          '<td>'+r.score+'</td>'+
          '<td>'+fmt(r.createdAt)+'</td>';
        tbody.appendChild(tr);
-     });
+     }
    }
 
    async function addScoreToCloud(score){
      try{
-       const name = getPlayerName() || "Player";
+       var name = getPlayerName() || "Player";
        await addDoc(collection(db,"scores"), {
-         name,
+         name: name,
          score: Number(score)||0,
          createdAt: serverTimestamp()
        });
      }catch(e){ console.error("addScore:", e); }
    }
 
-   function checkAdmin(label){ const pw = prompt(label+"\nEnter admin password:"); return pw && pw === ADMIN_PASSWORD; }
+   function checkAdmin(label){
+     var pw = prompt(label+"\nEnter admin password:");
+     return pw && pw === ADMIN_PASSWORD;
+   }
    function disableCloudButtons(disable, cache){
-     const controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
-     if (disable){ cache = controls.map(b => b.disabled); controls.forEach(b=>b.disabled = true); return cache; }
-     controls.forEach((b,i)=> b.disabled = cache ? cache[i] : false);
+     var controls = [document.getElementById("btnCloudClearSelected"), document.getElementById("btnCloudClearAll")];
+     if (disable){
+       cache = controls.map(function(b){ return b.disabled; });
+       controls.forEach(function(b){ b.disabled = true; });
+       return cache;
+     }
+     controls.forEach(function(b,i){ b.disabled = cache ? cache[i] : false; });
    }
 
    async function cloudDeleteSelected(){
      if (!checkAdmin("Clear SELECTED rows?")) return;
-     const btns = disableCloudButtons(true);
+     var btns = disableCloudButtons(true);
      try{
-       const checks = Array.from(document.querySelectorAll(".selbox.cloud:checked"));
+       var checks = Array.prototype.slice.call(document.querySelectorAll(".selbox.cloud:checked"));
        if (!checks.length){ alert("Please tick at least one row."); return; }
-       await Promise.all(checks.map(c => deleteDoc(doc(db,"scores", c.getAttribute("data-docid")))));
+       await Promise.all(checks.map(function(c){ return deleteDoc(doc(db,"scores", c.getAttribute("data-docid"))); }));
        alert("Deleted "+checks.length+" item(s) from cloud.");
      }catch(e){ console.error(e); alert("Failed to delete selected (see console)."); }
      finally{ disableCloudButtons(false, btns); }
@@ -510,33 +479,32 @@ const app = initializeApp(firebaseConfig);
 
    async function cloudClearAll(){
      if (!checkAdmin("Clear ALL scores that are currently shown?")) return;
-     const btns = disableCloudButtons(true);
+     var btns = disableCloudButtons(true);
      try{
-       const ids = Array.from(document.querySelectorAll(".selbox.cloud")).map(i=>i.getAttribute("data-docid"));
+       var ids = Array.prototype.slice.call(document.querySelectorAll(".selbox.cloud"))
+                .map(function(i){ return i.getAttribute("data-docid"); });
        if (!ids.length){ alert("No scores to delete."); return; }
-       await Promise.all(ids.map(id => deleteDoc(doc(db,"scores", id))));
+       await Promise.all(ids.map(function(id){ return deleteDoc(doc(db,"scores", id)); }));
        alert("Cleared the table’s scores from cloud.");
      }catch(e){ console.error(e); alert("Failed to clear scores (see console)."); }
      finally{ disableCloudButtons(false, btns); }
    }
 
-   /* ----------------- Pyodide + Game ----------------- */
-   let pyodide, gameCode, gameStarted=false;
+   /* -------- Pyodide + Game -------- */
+   var pyodide, gameCode, gameStarted=false;
 
-   // Use saved player name automatically; no prompt on game over
-   window.onGameOver = async (score, reason) => {
-     setTimeout(async ()=>{
+   window.onGameOver = async function(score, reason){
+     setTimeout(async function(){
        await addScoreToCloud(score);
        attachScoresListener();
        showScreen('screen-scores');
      }, 50);
    };
-
-   async function preloadEngine(){
+async function preloadEngine(){
      try{
        document.getElementById("loading").innerText = "Loading engine…";
        pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-       const resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
+       var resp = await fetch("main.py?v=" + Date.now(), { cache:"no-store" });
        gameCode = await resp.text();
        document.getElementById("loading").innerText = "Ready!";
      }catch(e){
@@ -546,75 +514,72 @@ const app = initializeApp(firebaseConfig);
    }
    preloadEngine();
 
-   /* Smooth / repeating controls */
-   function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
-     let holding=false, repeating=false, delayT=null, repeatT=null;
-     const clearTimers = () => {
-       if (delayT)  { clearTimeout(delayT);  delayT  = null; }
-       if (repeatT) { clearInterval(repeatT); repeatT = null; }
-     };
-     const onDown = (e) => {
+   function makeRepeater(element, fireFn, initialDelay, repeatEvery){
+     if (initialDelay===undefined) initialDelay=220;
+     if (repeatEvery===undefined) repeatEvery=55;
+     var holding=false, repeating=false, delayT=null, repeatT=null;
+     function clearTimers(){
+       if (delayT){ clearTimeout(delayT); delayT=null; }
+       if (repeatT){ clearInterval(repeatT); repeatT=null; }
+     }
+     function onDown(e){
        e.preventDefault();
        clearTimers(); holding=true; repeating=false;
-       delayT = setTimeout(() => {
+       delayT=setTimeout(function(){
          if (!holding) return;
-         repeating = true; fireFn();
-         repeatT = setInterval(fireFn, repeatEvery);
+         repeating=true; fireFn();
+         repeatT=setInterval(fireFn, repeatEvery);
        }, initialDelay);
-     };
-     const onUp = () => {
-       const isTap = holding && !repeating;
+     }
+     function onUp(){
+       var isTap = holding && !repeating;
        holding=false; clearTimers();
        if (isTap) fireFn();
-     };
+     }
      element.addEventListener('pointerdown', onDown, { passive:false });
      element.addEventListener('pointerup', onUp);
      element.addEventListener('pointerleave', onUp);
      element.addEventListener('pointercancel', onUp);
-     element.addEventListener('click', (e) => e.preventDefault()); // avoid ghost click
+     element.addEventListener('click', function(e){ e.preventDefault(); });
    }
 
-   /* UI events */
-   document.getElementById("btnPlay").addEventListener("click", async ()=>{
+   document.getElementById("btnPlay").addEventListener("click", async function(){
      tryStartMusic();
      showScreen('screen-game');
      if (gameStarted) return;
      gameStarted = true;
 
-     const gl = document.getElementById("gameLoading");
+     var gl = document.getElementById("gameLoading");
      gl.innerText = "Starting game…";
      await pyodide.runPythonAsync(gameCode);
      gl.innerText = "Game Loaded!";
 
-     document.querySelectorAll("#controls button").forEach(b=>b.disabled=false);
-     const callPy = (c)=> pyodide.runPython(c);
+     Array.prototype.forEach.call(document.querySelectorAll("#controls button"), function(b){ b.disabled=false; });
+     var callPy = function(c){ pyodide.runPython(c); };
 
-     document.getElementById("restartBtn").onclick = () => location.reload();
+     document.getElementById("restartBtn").onclick = function(){ location.reload(); };
 
-     makeRepeater(document.getElementById("btnLeft"),
-       ()=>callPy('on_key({"key":"ArrowLeft"})'), 130, 50);
-     makeRepeater(document.getElementById("btnRight"),
-       ()=>callPy('on_key({"key":"ArrowRight"})'), 130, 50);
-     makeRepeater(document.getElementById("btnRotate"),
-       ()=>callPy('on_key({"key":"ArrowUp"})'), 160, 90);
+     makeRepeater(document.getElementById("btnLeft"),  function(){ callPy('on_key({"key":"ArrowLeft"})'); }, 130, 50);
+     makeRepeater(document.getElementById("btnRight"), function(){ callPy('on_key({"key":"ArrowRight"})'); }, 130, 50);
+     makeRepeater(document.getElementById("btnRotate"),function(){ callPy('on_key({"key":"ArrowUp"})'); }, 160, 90);
 
-     const btnDown = document.getElementById("btnDown");
-     const downStart = (e)=>{ e.preventDefault(); callPy('start_soft_drop_hold()'); };
-     const downEnd   = ()=>{ callPy('stop_soft_drop_hold()'); };
+     var btnDown = document.getElementById("btnDown");
+     function downStart(e){ e.preventDefault(); callPy('start_soft_drop_hold()'); }
+     function downEnd(){ callPy('stop_soft_drop_hold()'); }
      btnDown.addEventListener("pointerdown", downStart, {passive:false});
      btnDown.addEventListener("pointerup",   downEnd);
      btnDown.addEventListener("pointerleave",downEnd);
      btnDown.addEventListener("pointercancel",downEnd);
-     btnDown.addEventListener("click", (e)=>{ e.preventDefault(); callPy('soft_drop_tap()'); });
+     btnDown.addEventListener("click", function(e){ e.preventDefault(); callPy('soft_drop_tap()'); });
 
      fitGameToViewport();
    });
 
-   document.getElementById("btnScores").addEventListener("click", ()=>{
+   document.getElementById("btnScores").addEventListener("click", function(){
      attachScoresListener();
      showScreen('screen-scores');
    });
-   document.getElementById("btnBackFromScores").addEventListener("click", ()=>{
+   document.getElementById("btnBackFromScores").addEventListener("click", function(){
      detachScoresListener();
      showScreen('screen-menu');
    });
@@ -622,14 +587,14 @@ const app = initializeApp(firebaseConfig);
    document.getElementById("btnCloudClearSelected").addEventListener("click", cloudDeleteSelected);
    document.getElementById("btnCloudClearAll").addEventListener("click", cloudClearAll);
 
-   document.getElementById("btnBackFromGame").addEventListener("click", ()=> showScreen('screen-menu'));
+   document.getElementById("btnBackFromGame").addEventListener("click", function(){ showScreen('screen-menu'); });
    window.addEventListener("keydown", tryStartMusic, { once:true });
 
-   // On boot: require a name before showing the menu
    requireNameFlowIfNeeded();
  </script>
 </body>
 </html>
+
 
 
 
