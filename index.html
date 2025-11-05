@@ -143,6 +143,19 @@
    tr:nth-child(even) td{ background:rgba(0,0,0,.20) }
    th.sel, td.sel{ width:52px; text-align:center }
    .muted{ opacity:.9; font-size:12px; text-shadow:0 1px 3px rgba(0,0,0,.6) }
+
+   /* ---- Name screen styling ---- */
+   #nameInput{
+     width:260px; max-width:80vw;
+     padding:10px 12px;
+     border-radius:8px; border:1px solid #666;
+     background:#111; color:#fff;
+     font-size:16px;
+     text-align:center;
+   }
+   #playerBadge{
+     font-size:13px; opacity:.9; margin-top:6px;
+   }
  </style>
 </head>
 <body>
@@ -155,9 +168,29 @@
      <div id="audioStatus"></div>
    </div>
 
+   <!-- ===== NAME (FIRST RUN) ===== -->
+   <section id="screen-name" class="screen active">
+     <div class="card" style="min-width:340px">
+       <h2>👤 Player Name</h2>
+       <p class="muted" style="max-width:520px">
+         Enter your name once. We’ll remember it and use it automatically on the Score Board.
+       </p>
+       <div style="margin:10px 0 4px">
+         <input id="nameInput" maxlength="24" placeholder="Enter name (e.g., Afiq)" />
+       </div>
+       <div>
+         <button id="btnSaveName" class="btn primary">Save & Continue</button>
+       </div>
+       <p class="muted" style="margin-top:8px">You can change this anytime from the menu.</p>
+     </div>
+   </section>
+
    <!-- ===== MENU ===== -->
-   <section id="screen-menu" class="screen active">
+   <section id="screen-menu" class="screen">
      <div class="card">
+       <p id="playerBadge">Player: <strong id="playerNameLabel">—</strong>
+         <button id="btnChangeName" class="btn small ghost" style="margin-left:8px">Change name</button>
+       </p>
        <p id="loading" style="color:#ff0; min-height:1.2em">Loading engine…</p>
        <div style="margin-top:12px">
          <button id="btnPlay" class="btn primary">▶ Play</button>
@@ -211,8 +244,7 @@
      </div>
    </section>
  </div>
-
- <!-- Background music -->
+<!-- Background music -->
  <audio id="bgm" src="bgm.mp3?v=1" loop preload="auto"></audio>
 
  <!-- ========================= APP SCRIPT ========================= -->
@@ -297,6 +329,46 @@
      if (id === 'screen-game'){ setTimeout(fitGameToViewport, 0); }
    }
 
+   /* ----------------- Player name helpers ----------------- */
+   const nameInput = document.getElementById('nameInput');
+   const playerNameLabel = document.getElementById('playerNameLabel');
+
+   function getPlayerName(){
+     const s = (localStorage.getItem('playerName')||'').trim();
+     return s || "";
+   }
+   function setPlayerName(name){
+     const clean = (name||"").trim().slice(0,24);
+     if (!clean) return false;
+     localStorage.setItem('playerName', clean);
+     playerNameLabel.textContent = clean;
+     return true;
+   }
+   function requireNameFlowIfNeeded(){
+     const saved = getPlayerName();
+     if (saved){
+       playerNameLabel.textContent = saved;
+       showScreen('screen-menu');
+     }else{
+       showScreen('screen-name');
+       setTimeout(()=>nameInput.focus(), 0);
+     }
+   }
+
+   document.getElementById('btnSaveName').addEventListener('click', ()=>{
+     const ok = setPlayerName(nameInput.value);
+     if (!ok){ alert('Please enter a name.'); return; }
+     showScreen('screen-menu');
+   });
+   nameInput.addEventListener('keydown', (e)=>{
+     if (e.key === 'Enter') document.getElementById('btnSaveName').click();
+   });
+   document.getElementById('btnChangeName').addEventListener('click', ()=>{
+     nameInput.value = getPlayerName();
+     showScreen('screen-name');
+     setTimeout(()=>nameInput.select(), 0);
+   });
+
    /* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
@@ -359,9 +431,14 @@
      });
    }
 
-   async function addScoreToCloud(name, score){
+   async function addScoreToCloud(score){
      try{
-       await addDoc(collection(db,"scores"), { name: name||"Player", score: Number(score)||0, createdAt: serverTimestamp() });
+       const name = getPlayerName() || "Player";
+       await addDoc(collection(db,"scores"), {
+         name,
+         score: Number(score)||0,
+         createdAt: serverTimestamp()
+       });
      }catch(e){ console.error("addScore:", e); }
    }
 
@@ -399,11 +476,10 @@
    /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
 
+   // NOTE: Now it uses saved player name automatically. No prompt at game over.
    window.onGameOver = async (score, reason) => {
-     const nice = reason === "timeup" ? "Time Up!" : "Game Over!";
      setTimeout(async ()=>{
-       const name = prompt(nice+"\nYour score: "+score+"\nEnter your name for the Score Board:") || "Player";
-       await addScoreToCloud(name, score);
+       await addScoreToCloud(score);
        attachScoresListener();
        showScreen('screen-scores');
      }, 50);
@@ -422,50 +498,33 @@
      }
    }
    preloadEngine();
-
-  /* Smooth / repeating controls */
-function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
- let holding = false;       // finger currently down?
- let repeating = false;     // repeat phase has started?
- let delayT = null;         // timeout before repeat
- let repeatT = null;        // interval for repeat
-
- const clearTimers = () => {
-   if (delayT)  { clearTimeout(delayT);  delayT  = null; }
-   if (repeatT) { clearInterval(repeatT); repeatT = null; }
- };
-
- const onDown = (e) => {
-   e.preventDefault();
-   clearTimers();
-   holding   = true;
-   repeating = false;
-
-   // Do NOT fire immediately. Only start once repeat kicks in.
-   delayT = setTimeout(() => {
-     if (!holding) return;          // released before delay → will be a tap
-     repeating = true;              // we're entering repeat mode
-     fireFn();                      // first step at repeat start
-     repeatT = setInterval(fireFn, repeatEvery);
-   }, initialDelay);
- };
-
- const onUp = () => {
-   // If user released before repeat began, treat it as a single tap.
-   const isTap = holding && !repeating;
-   holding = false;
-   clearTimers();
-   if (isTap) fireFn();             // exactly one action for a tap
- };
-
- element.addEventListener('pointerdown', onDown, { passive:false });
- element.addEventListener('pointerup', onUp);
- element.addEventListener('pointerleave', onUp);
- element.addEventListener('pointercancel', onUp);
-
- // Avoid the post-pointer 'click' from causing any extra behavior.
- element.addEventListener('click', (e) => e.preventDefault());
-}
+/* Smooth / repeating controls (single tap = one move; hold = repeat) */
+   function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
+     let holding=false, repeating=false, delayT=null, repeatT=null;
+     const clearTimers = () => {
+       if (delayT)  { clearTimeout(delayT);  delayT  = null; }
+       if (repeatT) { clearInterval(repeatT); repeatT = null; }
+     };
+     const onDown = (e) => {
+       e.preventDefault();
+       clearTimers(); holding=true; repeating=false;
+       delayT = setTimeout(() => {
+         if (!holding) return;
+         repeating = true; fireFn();
+         repeatT = setInterval(fireFn, repeatEvery);
+       }, initialDelay);
+     };
+     const onUp = () => {
+       const isTap = holding && !repeating;
+       holding=false; clearTimers();
+       if (isTap) fireFn();
+     };
+     element.addEventListener('pointerdown', onDown, { passive:false });
+     element.addEventListener('pointerup', onUp);
+     element.addEventListener('pointerleave', onUp);
+     element.addEventListener('pointercancel', onUp);
+     element.addEventListener('click', (e) => e.preventDefault()); // avoid ghost click
+   }
 
    /* UI events */
    document.getElementById("btnPlay").addEventListener("click", async ()=>{
@@ -517,6 +576,9 @@ function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
 
    document.getElementById("btnBackFromGame").addEventListener("click", ()=> location.reload());
    window.addEventListener("keydown", tryStartMusic, { once:true });
+
+   // On boot: require a name before showing the menu
+   requireNameFlowIfNeeded();
  </script>
 </body>
 </html>
