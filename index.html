@@ -20,6 +20,10 @@
      background:#000;
      color:#fff;
      min-height:100vh;
+
+     /* NEW: fill visible viewport & disable scroll */
+     height:100svh;
+     overflow:hidden;
    }
    * { -webkit-tap-highlight-color: transparent; }
 
@@ -97,24 +101,38 @@
    #loading{ color:#ff0; font-size:18px; min-height:1.4em; }
    #audioStatus{ font:12px/1.2 Arial,sans-serif; color:#eee; min-height:1.2em; margin-top:6px; text-shadow:0 1px 3px rgba(0,0,0,.6); }
 
-   .screen{ display:none; }
+   /* NEW: screens fill viewport to avoid pushing content */
+   .screen{ display:none; height:100svh; overflow:hidden; }
    .screen.active{ display:block; }
 
    #restartBtn{ display:none; margin-top:12px; }
 
    /* ====== BIGGER, SINGLE-ROW CONTROLS (Phone + PC) ====== */
+   /* NEW: fixed bottom bar so buttons are always visible */
    #controls{
-     margin:18px 0;
+     position:fixed;
+     left:0; right:0; bottom:0;
+     padding:
+       10px
+       calc(10px + env(safe-area-inset-right))
+       calc(10px + env(safe-area-inset-bottom))
+       calc(10px + env(safe-area-inset-left));
+     background:rgba(0,0,0,.40);
+     backdrop-filter:saturate(120%) blur(4px);
+     -webkit-backdrop-filter:saturate(120%) blur(4px);
+     z-index:999;
+     margin:0;
+
      display:flex;
      justify-content:center;
      align-items:center;
-     flex-wrap:nowrap;          /* force single row */
+     flex-wrap:nowrap;
      gap:18px;
      width:100%;
    }
    #controls button{
-     font-size:36px;            /* big icon */
-     padding:18px 26px;         /* big touch target */
+     font-size:36px;
+     padding:18px 26px;
      margin:4px;
      border-radius:14px;
      min-width:80px;
@@ -128,12 +146,11 @@
    #controls button:active{ transform:scale(.93); background:#555; }
    #controls button:disabled{ opacity:.5; cursor:not-allowed; }
 
-   @media (max-width:480px){
+   @media (max-height:640px){
      #controls button{
-       font-size:28px;
-       min-width:70px;
-       min-height:70px;
-       padding:16px 20px;
+       font-size:24px;
+       min-width:64px; min-height:64px;
+       padding:12px 16px;
      }
    }
 
@@ -153,9 +170,7 @@
      font-size:16px;
      text-align:center;
    }
-   #playerBadge{
-     font-size:13px; opacity:.9; margin-top:6px;
-   }
+   #playerBadge{ font-size:13px; opacity:.9; margin-top:6px; }
  </style>
 </head>
 <body>
@@ -206,7 +221,7 @@
        <canvas id="gameCanvas" width="300" height="600"></canvas><br />
        <button id="restartBtn" class="btn ghost">Restart Game</button>
 
-       <div id="controls">
+       <div id="controls" style="display:none">
          <button id="btnLeft"  disabled aria-label="Move left">◀</button>
          <button id="btnRight" disabled aria-label="Move right">▶</button>
          <button id="btnDown"  disabled aria-label="Soft drop">▼</button>
@@ -257,14 +272,28 @@
      __lastTouchEnd = now;
    }, {passive:false, capture:true});
 
-   /* Fit the whole game panel to the viewport */
+   /* Fit the whole game panel to the viewport (reserving space for controls) */
    const gameArea = document.getElementById('gameArea');
+
+   function gameScreenIsActive(){
+     return document.getElementById('screen-game').classList.contains('active');
+   }
+
    function fitGameToViewport(){
      gameArea.style.transform = 'none';
+
      const panelW = gameArea.scrollWidth;
      const panelH = gameArea.scrollHeight;
+
      const vw = Math.max(320, window.innerWidth) - 8;
-     const vh = Math.max(320, window.innerHeight) - 8;
+     let  vh = Math.max(320, window.innerHeight) - 8;
+
+     if (gameScreenIsActive()){
+       const controls = document.getElementById('controls');
+       const ch = (controls?.offsetHeight || 0) + 12;   // reserve bottom bar
+       vh = Math.max(200, vh - ch);
+     }
+
      const scale = Math.min(1, vw/panelW, vh/panelH);
      gameArea.style.transform = `scale(${scale})`;
    }
@@ -326,6 +355,11 @@
    function showScreen(id){
      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
      document.getElementById(id).classList.add('active');
+
+     // Show controls only on game screen
+     const controls = document.getElementById('controls');
+     controls.style.display = (id === 'screen-game') ? 'flex' : 'none';
+
      if (id === 'screen-game'){ setTimeout(fitGameToViewport, 0); }
    }
 
@@ -368,8 +402,7 @@
      showScreen('screen-name');
      setTimeout(()=>nameInput.select(), 0);
    });
-
-   /* ----------------- Firebase (CDN v11 modular) ----------------- */
+/* ----------------- Firebase (CDN v11 modular) ----------------- */
    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
    import {
      getFirestore, collection, addDoc, serverTimestamp,
@@ -391,7 +424,7 @@
    const ADMIN_PASSWORD = "LSSIsTheBest";
    const cloudStatusEl = document.getElementById("cloudStatus");
    const tbody = document.querySelector("#scoresTable tbody");
-   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+   const escapeHtml = (s)=> (s??"").toString().replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;","&gt;":">&gt;","\"":"&quot;","'":"&#39;"}[c]));
    const fmt = (ts)=> new Date(ts?.seconds? ts.seconds*1000 : Date.now())
      .toLocaleString([], { hour12:true, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
 
@@ -476,7 +509,7 @@
    /* ----------------- Pyodide + Game ----------------- */
    let pyodide, gameCode, gameStarted=false;
 
-   // NOTE: Now it uses saved player name automatically. No prompt at game over.
+   // Use saved player name automatically; no prompt on game over
    window.onGameOver = async (score, reason) => {
      setTimeout(async ()=>{
        await addScoreToCloud(score);
@@ -498,7 +531,8 @@
      }
    }
    preloadEngine();
-/* Smooth / repeating controls (single tap = one move; hold = repeat) */
+
+   /* Smooth / repeating controls */
    function makeRepeater(element, fireFn, initialDelay = 220, repeatEvery = 55){
      let holding=false, repeating=false, delayT=null, repeatT=null;
      const clearTimers = () => {
@@ -582,6 +616,7 @@
  </script>
 </body>
 </html>
+
 
 
 
