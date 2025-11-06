@@ -10,7 +10,7 @@ CW, CH = canvas.width, canvas.height
 # ===== Constants =====
 BLOCK_SIZE = 30
 ROWS = 15
-COLS = 5
+COLS = 10
 
 COLORS = ["#FF0000", "#00FF00", "#0000FF", "#FFFF00", "#FFA500", "#800080", "#00FFFF"]
 
@@ -368,6 +368,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
