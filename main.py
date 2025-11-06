@@ -8,7 +8,7 @@ ctx = canvas.getContext("2d")
 CW, CH = canvas.width, canvas.height
 
 # ===== Constants =====
-BLOCK_SIZE = 24
+BLOCK_SIZE = 30
 ROWS = 20
 COLS = 10
 
@@ -368,6 +368,7 @@ draw_grid()
 draw_ghost(current_shape, shape_pos)
 draw_shape(current_shape, shape_pos, current_color)
 draw_info()
+
 
 
 
