@@ -56,7 +56,7 @@
    /* --- GAME AREA --- */
    #gameArea{
      position:relative;
-     padding-top:8px;
+     padding-top:0;
      background:transparent !important;
      border-color:transparent !important;
      box-shadow:none !important;
@@ -65,7 +65,7 @@
      display:inline-block;
      transform-origin: top center;
      will-change: transform;
-     margin-top:10px;
+     margin-top:-40px;
    }
    /* centered logo behind the game only */
    #gameArea::before{
@@ -104,13 +104,14 @@
 
    /* ====== BIGGER, SINGLE-ROW CONTROLS (Phone + PC) ====== */
    #controls{
-     margin:18px 0;
+     margin:6px 0 10px 0;
      display:flex;
      justify-content:center;
      align-items:center;
      flex-wrap:nowrap;          /* force single row */
-     gap:18px;
+     gap:14px;
      width:100%;
+    transform:translateY(-20px);
    }
    #controls button{
      font-size:36px;            /* big icon */
@@ -582,6 +583,7 @@
  </script>
 </body>
 </html>
+
 
 
 
